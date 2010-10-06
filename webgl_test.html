@@ -1,0 +1,78 @@
+<html>
+<head>
+<title>WebGL</title>
+
+<style>
+#viewport { width: 640px; height: 480px; }
+</style>
+
+<script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DI.js"></script>
+<script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DIMath.js"></script>
+
+</head>
+<body>
+<canvas id="viewport" />
+
+<script id="vertex_shader" type="x-shader/x-vertex">
+
+uniform mat4 modelViewProjMatrix;
+attribute vec2 vPosition;
+
+void main(void) {
+    gl_Position = modelViewProjMatrix * vec4(vPosition, 0.0, 1.0);
+}
+
+</script>
+
+<script id="fragment_shader" type="x-shader/x-fragment">
+
+void main(void) {
+    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+}
+
+</script>
+
+
+<script type="text/javascript">
+//var gl;
+var modelViewProjMatrixLoc, viewTransform, vPositionIdx, vertices, vertexBuffer;
+
+gl = document.getElementById('viewport').getContext('experimental-webgl');
+gl.console = ("console" in window) ? window.console : { log: function() { } };
+
+gl.program = gl.createProgram();
+gl.attachShader(gl.program, loadShader(gl, 'vertex_shader'));
+gl.attachShader(gl.program, loadShader(gl, 'fragment_shader'));
+gl.linkProgram(gl.program);
+gl.useProgram(gl.program);
+
+// modelViewProjMatrix
+modelViewProjMatrixLoc = gl.getUniformLocation(gl.program, 'modelViewProjMatrix');
+viewTransform = new J3DIMatrix4();
+viewTransform.translate(0, 0.15);
+viewTransform.scale(0.5);
+gl.uniformMatrix4fv(modelViewProjMatrixLoc, false, viewTransform.getAsFloat32Array());
+
+// vPosition
+vPositionIdx = gl.getAttribLocation(gl.program, 'vPosition');
+gl.enableVertexAttribArray(vPositionIdx);
+vertices = new Float32Array([
+    1.0,  1.0,
+    -1.0, 1.0,
+    1.0,  -1.0,
+    -1.0, -1.0,
+]);
+vertexBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
+
+gl.clearColor(0,0,0,1);
+gl.clearDepth(1);
+gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+</script>
+
+</body>
+</html>
