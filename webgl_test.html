@@ -2,35 +2,32 @@
 <head>
 <title>WebGL</title>
 
-<style>
-#viewport { width: 640px; height: 480px; }
-</style>
-
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DI.js"></script>
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DIMath.js"></script>
 <script type="text/javascript" src="http://code.jquery.com/jquery-1.4.2.min.js"></script>
 
 </head>
 <body>
-<canvas id="viewport" />
+<canvas id="viewport" width="1024" height="768" />
 
 <script id="vertex_shader" type="x-shader/x-vertex">
 
 #define M_PI 3.14159265358979323846
 
 uniform mat4 modelViewProjMatrix;
-attribute vec2 vPosition;
+attribute vec4 vPosition;
 
 void main(void) {
 	float lam = radians(vPosition.x);
 	float phi = radians(vPosition.y);
 	
 	gl_Position.x = lam;
-	gl_Position.y = phi;	//log(tan(M_PI/4.0 + phi/2.0));
+	//gl_Position.y = phi;	
+	gl_Position.y = log(tan(M_PI/4.0 + phi/2.0));
 	gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
-	gl_PointSize = 1.0;
+	//gl_PointSize = 1.0;
 }
 
 </script>
@@ -45,10 +42,14 @@ void main(void) {
 
 
 <script type="text/javascript">
-//var gl;
-var modelViewProjMatrixLoc, viewTransform, vPositionIdx, vertices, vertexBuffer;
+//var gl, canvas;
+var modelViewProjMatrixLoc, viewTransform, vPositionIdx, dataType;
 
-gl = document.getElementById('viewport').getContext('experimental-webgl');
+
+canvas = document.getElementById('viewport');
+gl = canvas.getContext('experimental-webgl');
+console.log(canvas.width, canvas.height);
+//gl.viewport(0, 0, canvas.width, canvas.height);
 gl.console = ("console" in window) ? window.console : { log: function() { } };
 
 gl.program = gl.createProgram();
@@ -60,47 +61,71 @@ gl.useProgram(gl.program);
 // modelViewProjMatrix
 modelViewProjMatrixLoc = gl.getUniformLocation(gl.program, 'modelViewProjMatrix');
 viewTransform = new J3DIMatrix4();
-viewTransform.scale(5);
-viewTransform.translate(-0.1, -0.85);
+viewTransform.scale(1.0, canvas.width / canvas.height);
+viewTransform.scale(0.25);
+//viewTransform.translate(-0.1, -0.85);
 gl.uniformMatrix4fv(modelViewProjMatrixLoc, false, viewTransform.getAsFloat32Array());
 
 // vPosition
 vPositionIdx = gl.getAttribLocation(gl.program, 'vPosition');
 gl.enableVertexAttribArray(vPositionIdx);
-vertexBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 
 gl.clearColor(0,0,0,1);
 gl.clearDepth(1);
 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+
+if (!Float32Array.prototype.set) {
+	// FF4 doesn't conform to Khronos draft
+	// NOTE: this doesn't either (e.g. it fails if array is a typed array, etc.)
+	Float32Array.prototype.set = function (array, offset) {
+		offset = offset || 0;
+		array.forEach(function (val, i) {
+			this[i+offset] = val;
+		}, this);
+	}
+}
+
+
 function drawShape(vertexArray) {
 	var vertices;
-
+	
 	// unzip the vertexArray
 	vertices = new Float32Array(vertexArray.length * 2);
 	vertexArray.forEach(function (pair, i) {
-		//if (i % 50) return;
+		//if (i % 5) return;
 		vertices.set(pair, 2*i);
 	});
 	
 	gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STREAM_DRAW);
-	gl.drawArrays(gl.POINTS, 0, vertices.length / 2);
+	gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
+	gl.drawArrays(gl.LINE_LOOP, 0, vertices.length / 2);
 }
 
+/*
+ var countryList = [];
+ countryList.push('09cbb20a3a888441c4cd58c36b04cceb');	// Netherlands
+ countryList.push('09cbb20a3a888441c4cd58c36b029490');	// Germany
+ */
 
-var countryList = [];
-countryList.push('09cbb20a3a888441c4cd58c36b04cceb');	// Netherlands
-countryList.push('09cbb20a3a888441c4cd58c36b029490');	// Germany
-
-countryList.forEach(function (docId) {
-	$.get("http://localhost:5984/countries/" + docId, function (doc) {
-		doc.geometry.coordinates.forEach(function (polygon) {
-			drawShape(polygon[0]);
-		});
-	}, 'json');
-});
+dataType = 'json';	// use 'jsonp' for FF4
+$.get("http://localhost:5984/countries/_all_docs", function (result) {
+	var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
+	countryList.forEach(function (docId) {
+		$.get("http://localhost:5984/countries/" + docId, function (doc) {
+			var shapes;
+			if (doc.geometry.type === 'MultiPolygon') {
+				shapes = doc.geometry.coordinates;
+			} else if (doc.geometry.type === 'Polygon') {
+				shapes = [doc.geometry.coordinates];
+			}
+			shapes.forEach(function (polygon) {
+				drawShape(polygon[0]);
+			});
+		}, dataType);
+	});
+}, dataType);
 
 </script>
 
