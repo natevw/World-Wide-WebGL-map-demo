@@ -8,16 +8,16 @@
 
 </head>
 <body>
-<canvas id="viewport" width="1024" height="768" />
+<canvas id="viewport" width="1024" height="768"></canvas>
 
 <script id="vertex_shader" type="x-shader/x-vertex">
 
 #define M_PI 3.14159265358979323846
 #define M_1_PI 0.31830988618379067154
 #define M_2_PI 0.63661977236758134308
-#define RBSN_SCALE 0.5072
 
-uniform sampler2D robinsonTable;
+#define RBSN_SCALE 0.5072
+uniform vec2 robinsonParallels[19];
 
 uniform mat4 modelViewProjMatrix;
 attribute vec4 vPosition;
@@ -26,9 +26,12 @@ void main(void) {
 	float lam = radians(vPosition.x);
 	float phi = radians(vPosition.y);
 	
-	vec4 robinsonRow = texture2D(robinsonTable, vec2(abs(phi * M_2_PI), 0.5));
-	gl_Position.x = robinsonRow.p * lam * M_1_PI;
-	gl_Position.y = sign(phi) * robinsonRow.q * RBSN_SCALE;
+	float pos = abs(phi * M_2_PI) * 18.0;
+	int idx1 = int(floor(pos));
+	int idx2 = int(ceil(pos));
+	vec2 robinsonRow = mix(robinsonParallels[idx1], robinsonParallels[idx2], fract(pos));
+	gl_Position.x = robinsonRow.x * lam * M_1_PI;
+	gl_Position.y = sign(phi) * robinsonRow.y * RBSN_SCALE;
 	gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
@@ -48,7 +51,7 @@ void main(void) {
 
 <script type="text/javascript">
 //var gl, canvas;
-var robinsonStuff, viewTransform, vPositionIdx, dataType;
+var robinsonStuff, viewTransform, vPositionIdx, host, dataType;
 
 if (!Float32Array.prototype.set) {
 	// FF4 doesn't conform to Khronos typed array draft
@@ -59,7 +62,7 @@ if (!Float32Array.prototype.set) {
 			this[i+offset] = val;
 		}, this);
 	}
-	Uint8Array.prototype.set = Float32Array.prototype.set;
+	//Uint8Array.prototype.set = Float32Array.prototype.set;
 }
 
 canvas = document.getElementById('viewport');
@@ -78,26 +81,21 @@ gl.attachShader(gl.program, loadShader(gl, 'fragment_shader'));
 gl.linkProgram(gl.program);
 gl.useProgram(gl.program);
 
-// robinsonTable
-gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
-gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+// robinsonParallels
 robinsonStuff = {};
 robinsonStuff.plen = [1.0000, 0.9986, 0.9954, 0.9900, 0.9822, 0.9730, 0.9600, 0.9427, 0.9216, 0.8962, 0.8679, 0.8350, 0.7986, 0.7597, 0.7186, 0.6732, 0.6213, 0.5722, 0.5322];
 robinsonStuff.pdfe = [0.0000, 0.0620, 0.1240, 0.1860, 0.2480, 0.3100, 0.3720, 0.4340, 0.4958, 0.5571, 0.6176, 0.6769, 0.7346, 0.7903, 0.8435, 0.8936, 0.9394, 0.9761, 1.0000];
 robinsonStuff.numSamples = robinsonStuff.plen.length;
-robinsonStuff.textureData = new Uint8Array(2 * robinsonStuff.numSamples);
-robinsonStuff.plen.forEach(function (plen_i, i) {
-	robinsonStuff.textureData.set([255 * plen_i, 255 * robinsonStuff.pdfe[i]], 2 * i);
+robinsonStuff.textureData = new Float32Array(2 * robinsonStuff.numSamples);
+robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) {
+	robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i);
 });
-gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, robinsonStuff.numSamples, 1, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, robinsonStuff.textureData);
-gl.uniform1i(gl.getUniformLocation(gl.program, 'robinsonTable'), 0);
+gl.uniform2fv(gl.getUniformLocation(gl.program, 'robinsonParallels'), robinsonStuff.textureData);
 
 // modelViewProjMatrix
 viewTransform = new J3DIMatrix4();
 viewTransform.scale(1.0, canvas.width / canvas.height);
-viewTransform.scale(0.75);
+viewTransform.scale(1);
 //viewTransform.translate(-0.1, -0.85);
 gl.uniformMatrix4fv(gl.getUniformLocation(gl.program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
 
@@ -125,11 +123,17 @@ function drawShape(vertexArray) {
 	gl.drawArrays(gl.LINE_LOOP, 0, vertices.length / 2);
 }
 
-dataType = 'json';	// use 'jsonp' for FF4
-$.get("http://localhost:5984/countries/_all_docs", function (result) {
+if (window.location.host) {
+	host = "http://natevw.couchone.com/countries/";
+	dataType = 'jsonp';
+} else {
+	host = "http://localhost:5984/countries/";
+	dataType = 'json';	// use 'jsonp' for FF4/Chrome locally
+}
+$.get(host + '_all_docs', function (result) {
 	var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
 	countryList.forEach(function (docId) {
-		$.get("http://localhost:5984/countries/" + docId, function (doc) {
+		$.get(host + docId, function (doc) {
 			var shapes;
 			if (doc.geometry.type === 'MultiPolygon') {
 				shapes = doc.geometry.coordinates;
