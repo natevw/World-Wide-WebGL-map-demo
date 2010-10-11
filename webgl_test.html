@@ -7,10 +7,10 @@
 <script type="text/javascript" src="http://code.jquery.com/jquery-1.4.2.min.js"></script>
 
 </head>
-<body>
-<canvas id="viewport" width="1024" height="768"></canvas>
+<body style="background: cornsilk">
+<canvas id="viewport" width="2048" height="1536" style="width: 1024; height: 768"></canvas>
 
-<script id="vertex_shader" type="x-shader/x-vertex">
+<script id="robinson_vertex_shader" type="x-shader/x-vertex">
 
 #define M_PI 3.14159265358979323846
 #define M_1_PI 0.31830988618379067154
@@ -20,38 +20,61 @@
 uniform vec2 robinsonParallels[19];
 
 uniform mat4 modelViewProjMatrix;
-attribute vec4 vPosition;
+uniform float blend;
+
+attribute vec2 vPosition;
+varying vec2 textureCoord;
 
 void main(void) {
-	float lam = radians(vPosition.x);
-	float phi = radians(vPosition.y);
+    vec2 coord = radians(vPosition);
+    textureCoord = vPosition / vec2(360.0, -180.0) + 0.5;
 	
-	float pos = abs(phi * M_2_PI) * 18.0;
+	float pos = abs(coord.y * M_2_PI) * 18.0;
 	int idx1 = int(floor(pos));
 	int idx2 = int(ceil(pos));
 	vec2 robinsonRow = mix(robinsonParallels[idx1], robinsonParallels[idx2], fract(pos));
-	gl_Position.x = robinsonRow.x * lam * M_1_PI;
-	gl_Position.y = sign(phi) * robinsonRow.y * RBSN_SCALE;
+    
+    vec2 robinsonResult = vec2(robinsonRow.x * coord.x * M_1_PI,
+                               sign(coord.y) * robinsonRow.y * RBSN_SCALE);
+    vec2 mercatorResult = vec2(coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
+    mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
+    
+    gl_Position.xy = mix(robinsonResult, mercatorResult, blend);
 	gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
-	//gl_PointSize = 1.0;
 }
 
 </script>
 
-<script id="fragment_shader" type="x-shader/x-fragment">
+
+<script id="color_fragment_shader" type="x-shader/x-fragment">
+
+uniform mediump vec4 color;
 
 void main(void) {
-    gl_FragColor = vec4(0.3, 0.5, 0.4, 1.0);
+    gl_FragColor = color;
 }
 
 </script>
+
+
+<script id="texture_fragment_shader" type="x-shader/x-fragment">
+
+uniform sampler2D texture;
+varying highp vec2 textureCoord;
+
+void main(void) {
+    gl_FragColor = texture2D(texture, textureCoord);
+}
+
+</script>
+
 
 
 <script type="text/javascript">
 //var gl, canvas;
-var robinsonStuff, viewTransform, vPositionIdx, host, dataType;
+var viewTransform, vPositionIdx, texture, host, dataType;
 
 if (!Float32Array.prototype.set) {
 	// FF4 doesn't conform to Khronos typed array draft
@@ -75,38 +98,67 @@ gl.console.logErrors = function () {
 	}
 };
 
-gl.program = gl.createProgram();
-gl.attachShader(gl.program, loadShader(gl, 'vertex_shader'));
-gl.attachShader(gl.program, loadShader(gl, 'fragment_shader'));
-gl.linkProgram(gl.program);
-gl.useProgram(gl.program);
+gl.shaders = {};
+gl.shaders.robinsonVertex = loadShader(gl, 'robinson_vertex_shader');
+gl.shaders.colorFragment = loadShader(gl, 'color_fragment_shader');
+gl.shaders.textureFragment = loadShader(gl, 'texture_fragment_shader');
 
-// robinsonParallels
-robinsonStuff = {};
-robinsonStuff.plen = [1.0000, 0.9986, 0.9954, 0.9900, 0.9822, 0.9730, 0.9600, 0.9427, 0.9216, 0.8962, 0.8679, 0.8350, 0.7986, 0.7597, 0.7186, 0.6732, 0.6213, 0.5722, 0.5322];
-robinsonStuff.pdfe = [0.0000, 0.0620, 0.1240, 0.1860, 0.2480, 0.3100, 0.3720, 0.4340, 0.4958, 0.5571, 0.6176, 0.6769, 0.7346, 0.7903, 0.8435, 0.8936, 0.9394, 0.9761, 1.0000];
-robinsonStuff.numSamples = robinsonStuff.plen.length;
-robinsonStuff.textureData = new Float32Array(2 * robinsonStuff.numSamples);
-robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) {
-	robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i);
-});
-gl.uniform2fv(gl.getUniformLocation(gl.program, 'robinsonParallels'), robinsonStuff.textureData);
+gl.rasterProgram = gl.createProgram();
+gl.attachShader(gl.rasterProgram, gl.shaders.robinsonVertex);
+gl.attachShader(gl.rasterProgram, gl.shaders.textureFragment);
+gl.linkProgram(gl.rasterProgram);
+//setupProgram(gl.rasterProgram);
 
-// modelViewProjMatrix
-viewTransform = new J3DIMatrix4();
-viewTransform.scale(1.0, canvas.width / canvas.height);
-viewTransform.scale(1);
-//viewTransform.translate(-0.1, -0.85);
-gl.uniformMatrix4fv(gl.getUniformLocation(gl.program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
+gl.vectorProgram = gl.createProgram();
+gl.attachShader(gl.vectorProgram, gl.shaders.robinsonVertex);
+gl.attachShader(gl.vectorProgram, gl.shaders.colorFragment);
+gl.linkProgram(gl.vectorProgram);
+//setupProgram(gl.vectorProgram);
 
-// vPosition
-vPositionIdx = gl.getAttribLocation(gl.program, 'vPosition');
-gl.enableVertexAttribArray(vPositionIdx);
-gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+function setupProgram(program, blend) {
+    var robinsonStuff;
+    
+    gl.useProgram(program);
+    
+    // robinsonParallels
+    robinsonStuff = {};
+    robinsonStuff.plen = [1.0000, 0.9986, 0.9954, 0.9900, 0.9822, 0.9730, 0.9600, 0.9427, 0.9216, 0.8962, 0.8679, 0.8350, 0.7986, 0.7597, 0.7186, 0.6732, 0.6213, 0.5722, 0.5322];
+    robinsonStuff.pdfe = [0.0000, 0.0620, 0.1240, 0.1860, 0.2480, 0.3100, 0.3720, 0.4340, 0.4958, 0.5571, 0.6176, 0.6769, 0.7346, 0.7903, 0.8435, 0.8936, 0.9394, 0.9761, 1.0000];
+    robinsonStuff.numSamples = robinsonStuff.plen.length;
+    robinsonStuff.textureData = new Float32Array(2 * robinsonStuff.numSamples);
+    robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) {
+                               robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i);
+                               });
+    gl.uniform2fv(gl.getUniformLocation(program, 'robinsonParallels'), robinsonStuff.textureData);
+    
+    // modelViewProjMatrix
+    viewTransform = new J3DIMatrix4();
+    viewTransform.scale(1.0, canvas.width / canvas.height);
+    viewTransform.scale(0.75);
+    //viewTransform.translate(-0.1, -0.85);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
+    
+    // mix
+    gl.uniform1i(gl.getUniformLocation(program, 'blend'), blend);
+    
+    // vPosition
+    vPositionIdx = gl.getAttribLocation(program, 'vPosition');
+    gl.enableVertexAttribArray(vPositionIdx);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+}
 
-gl.clearColor(0.522,0.671,0.82,1);
-gl.clearDepth(1);
-gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+texture = gl.createTexture();
+texture.image = new Image();
+texture.image.onload = function () {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    draw(0);
+};
+texture.image.src = "HYP_50M_SR_W.jpg";
 
 function drawShape(vertexArray) {
 	var vertices;
@@ -123,29 +175,68 @@ function drawShape(vertexArray) {
 	gl.drawArrays(gl.LINE_LOOP, 0, vertices.length / 2);
 }
 
-if (window.location.host) {
-	host = "http://natevw.couchone.com/countries/";
-	dataType = 'jsonp';
-} else {
-	host = "http://localhost:5984/countries/";
-	dataType = 'json';	// use 'jsonp' for FF4/Chrome locally
+function draw(blend) {
+    gl.clearColor(0,0,0,0);
+    gl.clearDepth(1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    setupProgram(gl.rasterProgram, blend);
+    
+    // texture
+    gl.uniform1i(gl.getUniformLocation(gl.rasterProgram, "texture"), 0);
+    
+    var vertices, b, x, xIdx, y, yIdx;
+    b = {
+        startX: -180, stepX: 5, countX: 73,
+        startY: -90, stepY: 5, countY: 37
+    };
+    for (x = b.startX, xIdx = 0; xIdx < b.countX; xIdx += 1, x += b.stepX) {
+        vertices = new Float32Array(4 * b.countY);
+        for (y = b.startY, yIdx = 0; yIdx < b.countY; yIdx += 1, y += b.stepY) {
+            vertices.set([x + b.stepX, y, x, y], 4 * yIdx);
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STREAM_DRAW);
+        gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertices.length / 2);
+    }
+    
+    setupProgram(gl.vectorProgram, blend);
+    
+    // color
+    gl.uniform4f(gl.getUniformLocation(gl.vectorProgram, "color"), 1.0, 1.0, 0.0, 0.1);
+    
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.lineWidth(2);
+    
+    if (window.location.host) {
+        host = "http://natevw.couchone.com/countries/";
+        dataType = 'jsonp';
+    } else {
+        host = "http://localhost:5984/countries/";
+        dataType = 'json';	// use 'jsonp' for FF4/Chrome locally
+    }
+    $.get(host + '_all_docs', function (result) {
+        var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
+        countryList.forEach(function (docId) {
+            $.get(host + docId, function (doc) {
+                var shapes;
+                if (doc.geometry.type === 'MultiPolygon') {
+                    shapes = doc.geometry.coordinates;
+                } else if (doc.geometry.type === 'Polygon') {
+                    shapes = [doc.geometry.coordinates];
+                }
+                shapes.forEach(function (polygon) {
+                    drawShape(polygon[0]);
+                });
+            }, dataType);
+        });
+    }, dataType);
 }
-$.get(host + '_all_docs', function (result) {
-	var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
-	countryList.forEach(function (docId) {
-		$.get(host + docId, function (doc) {
-			var shapes;
-			if (doc.geometry.type === 'MultiPolygon') {
-				shapes = doc.geometry.coordinates;
-			} else if (doc.geometry.type === 'Polygon') {
-				shapes = [doc.geometry.coordinates];
-			}
-			shapes.forEach(function (polygon) {
-				drawShape(polygon[0]);
-			});
-		}, dataType);
-	});
-}, dataType);
+
+
+
+
 
 </script>
 
