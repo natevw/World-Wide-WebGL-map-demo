@@ -93,7 +93,6 @@ canvas = document.getElementById('viewport');
 gl = canvas.getContext('experimental-webgl');
 gl.console = ("console" in window) ? window.console : { log: function() { } };
 gl.e = gl.console.logErrors = function () {
-    gl.flush();
     gl.finish();
 	var err, NAMES = {1280:'INVALID_ENUM', 1281:'INVALID_VALUE', 1282:'INVALID_OPERATION', 1283:'STACK_OVERFLOW', 1284:'STACK_UNDERFLOW', 1285:'OUT_OF_MEMORY'};
 	while (err = gl.getError()) {
@@ -202,7 +201,7 @@ if (window.location.host) {
     dataType = 'jsonp';
 } else {
     host = "http://localhost:5984/countries/";
-    dataType = 'jsonp';	// use 'jsonp' for FF4/Chrome locally
+    dataType = 'json';	// use 'jsonp' for FF4/Chrome locally
 }
 $.get(host + '_all_docs', function (result) {
     var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
@@ -218,10 +217,9 @@ $.get(host + '_all_docs', function (result) {
                 var sourceArray, vertices, vbo;
                 
                 // unzip the sourceArray
-                sourceArray = polygon[0];
+                sourceArray = polygon[0];   //.filter(function (pair, i) { return !(i % 10); });
                 vertices = new Float32Array(sourceArray.length * 2);
                 sourceArray.forEach(function (pair, i) {
-                    //if (i % 5) return;
                     vertices.set(pair, 2*i);
                 });
                 
