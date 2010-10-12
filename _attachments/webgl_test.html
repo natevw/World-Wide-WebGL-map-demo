@@ -75,7 +75,7 @@ void main(void) {
 
 <script type="text/javascript">
 //var gl, canvas;
-var viewTransform, vPositionIdx, texture, polygons, host, dataType;
+var viewTransform, vPositionIdx, texture, polygons, host;
 
 if (!Float32Array.prototype.set) {
 	// FF4 doesn't conform to Khronos typed array draft
@@ -196,13 +196,7 @@ texture.image.src = "HYP_50M_SR_W.jpg";
 
 // setup vector overlay
 polygons = [];
-if (window.location.host) {
-    host = "http://natevw.couchone.com/countries/";
-    dataType = 'jsonp';
-} else {
-    host = "http://localhost:5984/countries/";
-    dataType = 'json';	// use 'jsonp' for FF4/Chrome locally
-}
+host = '../../';
 $.get(host + '_all_docs', function (result) {
     var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
     countryList.forEach(function (docId) {
@@ -229,9 +223,9 @@ $.get(host + '_all_docs', function (result) {
                 gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
                 polygons.push({buffer: vbo, vertexCount: vertices.length / 2});
             });
-        }, dataType);
+        }, 'json');
     });
-}, dataType);
+}, 'json');
 
 
 function draw(scale, blend) {
