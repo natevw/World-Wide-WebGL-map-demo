@@ -115,7 +115,7 @@ void main(void) {
 
 <script type="text/javascript">
 //var gl, canvas;
-var viewTransform, vPositionIdx, texture, polygons, host;
+var animating, viewTransform, vPositionIdx, texture, polygons, host;
 
 if (!Float32Array.prototype.set) {
 	// FF4 doesn't conform to Khronos typed array draft
@@ -231,7 +231,9 @@ texture.image.onload = function () {
         texture.strips.push({buffer: vbo, vertexCount: vertices.length / 2});
     }
     
-    draw(0.75, 0);
+    if (!animating) {
+        draw(0.75, 0);
+    }
 };
 texture.image.src = "HYP_50M_SR_W.jpg";
 
@@ -266,7 +268,9 @@ $.get(host + '_all_docs', function (result) {
                 polygons.push({buffer: vbo, vertexCount: vertices.length / 2});
             });
             
-            draw(0.75, 0);
+            if (!animating) {
+                draw(0.75, 0);
+            }
         }, 'json');
     });
 }, 'json');
@@ -305,6 +309,7 @@ $('#toggle_animation').click(function () {
     fps = new Framerate('frames');
     
     state = 0.0;
+    animating = true;
     timer = setInterval(function () {
         var blend, scale;
 
