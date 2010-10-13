@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>WebGL</title>
+<title>&amp;yet demo - World Wide WebGL</title>
 
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DI.js"></script>
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DIMath.js"></script>
@@ -8,7 +8,48 @@
 
 </head>
 <body style="background: cornsilk">
+
+<h1>World Wide WebGL</h1>
+
+<p>
+This is a demonstration of using WebGL to do web-based cartographic drawing on the GPU.
+</p>
+
+<h2>How to view</h2>
+
+<p>
+Unless this is THE FUTURE, you will likely need to <a href="http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation">download and
+configure</a> a pre-release version of your favorite browser to view it. If the animation has really poor frame rate (~10fps or less)
+it's probably running on a software OpenGL fallback. Make sure you're using the latest nightly build of your browser with a graphics card
+that <a href="http://homepage.mac.com/arekkusu/bugs/GLInfo.html">supports OpenGL 2.0</a> or better.
+</p>
+
+<p>
+Use the "Animate" button once all the vector country borders are loaded to flex the superpowers of WebGL.
+<p>
+
+<h2>About</h2>
+
+<p>
+This <a href="http://andyet.net/">&amp;yet</a> production was created by @natevw early in 2010 October.
+It reprojects both a raster texture and vector polygons, using GPU-accelerated programmable shaders via WebGL.
+The map contents are derived from the most excellent <a href="http://www.naturalearthdata.com/">Natural Earth</a> dataset.
+This demo and all its data is hosted via <a href="/_utils/database.html?world">CouchDB</a>,
+so you can replicate this demo to a local machine for quicker initial load times.
+</p>
+
+<p>
+[behind the scenes blog post]
+</p>
+
+
+<h2>The demo, already...</h2>
+
+
 <canvas id="viewport" width="2048" height="1536" style="width: 1024; height: 768"></canvas>
+
+<button type="button" id="toggle_animation">Animate</button>
+<!--<input type="checkbox" id="unlimit">Let 'er rip!</button>-->
 <div id="frames"></div>
 
 <script id="robinson_vertex_shader" type="x-shader/x-vertex">
@@ -190,6 +231,8 @@ texture.image.onload = function () {
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
         texture.strips.push({buffer: vbo, vertexCount: vertices.length / 2});
     }
+    
+    draw(0.75, 0);
 };
 texture.image.src = "HYP_50M_SR_W.jpg";
 
@@ -223,6 +266,8 @@ $.get(host + '_all_docs', function (result) {
                 gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
                 polygons.push({buffer: vbo, vertexCount: vertices.length / 2});
             });
+            
+            draw(0.75, 0);
         }, 'json');
     });
 }, 'json');
@@ -255,23 +300,31 @@ function draw(scale, blend) {
     });
 }
 
-
-fps = new Framerate('frames');
-
-state = 0.0;
-timer = setInterval(function () {
-    var blend, scale;
+$('#toggle_animation').click(function () {
+    var fps, state, timer;
     
-    blend = 1 - Math.abs(state-1);
-    scale = 0.5 - 0.25 * blend;
-    draw(scale, blend);
-    gl.flush();
-    fps.snapshot();
+    fps = new Framerate('frames');
     
-    state = (state + 0.01) % 2.0;
-}, 10);
+    state = 0.0;
+    timer = setInterval(function () {
+        var blend, scale;
+
+        blend = 1 - Math.abs(state-1);
+        scale = 0.5 - 0.25 * blend;
+        draw(scale, blend);
+        gl.flush();
+        fps.snapshot();
+
+        state = (state + 0.01) % 2.0;
+    }, 1);
+    $('#toggle_animation').hide();
+});
 
 </script>
+
+
+<hr />
+Copyright &copy; 2010 &amp;yet, LLC. Released under (TODO:) some license or another.
 
 </body>
 </html>
