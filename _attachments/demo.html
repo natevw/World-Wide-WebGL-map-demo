@@ -6,6 +6,32 @@
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DIMath.js"></script>
 <script type="text/javascript" src="http://code.jquery.com/jquery-1.4.2.min.js"></script>
 
+<!--
+
+Written by Nathan Vander Wilt.
+Copyright (c) 2010 &yet, LLC.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+-->
+
+
 </head>
 <body style="background: cornsilk">
 
@@ -117,6 +143,17 @@ void main(void) {
 //var gl, canvas;
 var animating, viewTransform, vPositionIdx, texture, polygons, host;
 
+canvas = document.getElementById('viewport');
+if (canvas.getContext) {
+    gl = canvas.getContext('experimental-webgl');
+}
+
+if (!gl) {
+    $(canvas).replaceWith("<span style='border: 2px dashed red; display: block; padding: 2em; font-style: italic'>Sorry, your browser doesn't appear to support WebGL. Please see the instructions above.</span>");
+    $('#toggle_animation').hide();
+    throw Error("WebGL not available");
+}
+
 if (!Float32Array.prototype.set) {
 	// FF4 doesn't conform to Khronos typed array draft
 	// NOTE: this doesn't either (e.g. it fails if array is a typed array, etc.)
@@ -129,8 +166,6 @@ if (!Float32Array.prototype.set) {
 	//Uint8Array.prototype.set = Float32Array.prototype.set;
 }
 
-canvas = document.getElementById('viewport');
-gl = canvas.getContext('experimental-webgl');
 gl.console = ("console" in window) ? window.console : { log: function() { } };
 gl.e = gl.console.logErrors = function () {
     gl.finish();
@@ -328,7 +363,7 @@ $('#toggle_animation').click(function () {
 
 
 <hr />
-Copyright &copy; 2010 &amp;yet, LLC. Released under (TODO:) some license or another.
+Copyright &copy; 2010 &amp;yet, LLC. Released under the MIT license.
 
 </body>
 </html>
