@@ -2,9 +2,9 @@
 About
 =====
 
-This is a demonstration of using WebGL to do web-based cartographic drawing on the GPU, written by @natevw of &yet_.
+This is a demonstration of using WebGL to do web-based cartographic drawing on the GPU, written by @natevw of `&yet`_.
 
-You can view this as a hosted demo_ or read our blog post about it_.
+You can `view this as a hosted demo`_ or `read our blog post about it`_.
 
 
 .. _&yet: http://andyet.net
