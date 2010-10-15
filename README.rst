@@ -2,7 +2,7 @@
 About
 =====
 
-This is a demonstration of using WebGL to do web-based cartographic drawing on the GPU, written by @natevw of `&yet`_.
+This demo uses WebGL to quickly draw reprojected cartographic data in a <canvas> element. It was written by @natevw of `&yet`_.
 
 .. image:: https://github.com/andyet/World-Wide-WebGL-map-demo/raw/master/_attachments/HYP_50M_SR_W.jpg
 
