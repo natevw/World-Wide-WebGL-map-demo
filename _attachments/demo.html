@@ -339,22 +339,23 @@ function draw(scale, blend) {
 }
 
 $('#toggle_animation').click(function () {
-    var fps, state, timer;
+    var fps, PI, state, timer;
     
     fps = new Framerate('frames');
     
-    state = 0.0;
+    PI = 3.1415926536;
+    state = PI / 2;
     animating = true;
     timer = setInterval(function () {
         var blend, scale;
-
-        blend = 1 - Math.abs(state-1);
-        scale = 0.5 - 0.25 * blend;
+        
+        blend = 0.5 - Math.sin(state) / 2;
+        scale = 0.65 - 0.4 * blend;
         draw(scale, blend);
         gl.flush();
         fps.snapshot();
 
-        state = (state + 0.01) % 2.0;
+        state += 0.01;
     }, 1);
     $('#toggle_animation').hide();
 });
@@ -363,7 +364,7 @@ $('#toggle_animation').click(function () {
 
 
 <hr />
-Copyright &copy; 2010 &amp;yet, LLC. Released under the MIT license.
+Copyright &copy; 2010 &amp;yet, LLC. Released under the terms of the MIT license.
 
 </body>
 </html>
