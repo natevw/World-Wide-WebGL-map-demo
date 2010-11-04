@@ -323,6 +323,24 @@ $.get(host + '_all_docs', function (result) {
                 ringOffset += 3;
             });
             
+            oldNumVerts = numVerts;
+            oldVertices = vertices;
+            numVerts = 2 * oldNumVerts - 2;
+            vertices = new Float32Array(numVerts * 3);
+            
+            vertices[0] = oldVertices[0];
+            vertices[1] = oldVertices[1];
+            vertices[2] = oldVertices[2];
+            for (i = 1; i < oldNumVerts - 1; i += 1) {
+                vertices[6*i+0] = vertices[6*i-3] = oldVertices[3*i+0];
+                vertices[6*i+1] = vertices[6*i-2] = oldVertices[3*i+1];
+                vertices[6*i+2] = vertices[6*i-1] = oldVertices[3*i+2];
+            }
+            vertices[6*i-3] = oldVertices[3*i+0];
+            vertices[6*i-2] = oldVertices[3*i+1];
+            vertices[6*i-1] = oldVertices[3*i+2];
+            
+            
             // copy to buffer
             vbo = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -360,7 +378,7 @@ function draw(scale, blend) {
     polygons.forEach(function (polygon) {
         gl.bindBuffer(gl.ARRAY_BUFFER, polygon.buffer);
         gl.vertexAttribPointer(vPositionIdx, 3, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.LINE_STRIP, 0, polygon.vertexCount);
+        gl.drawArrays(gl.LINES, 0, polygon.vertexCount);
     });
 }
 
