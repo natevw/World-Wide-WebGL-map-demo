@@ -1,0 +1,143 @@
+<html>
+<head>
+<title>&amp;yet demo - World Wide WebGL</title>
+
+<script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DI.js"></script>
+<script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DIMath.js"></script>
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.4.2.min.js"></script>
+
+<!--
+
+Written by Nathan Vander Wilt.
+Copyright (c) 2010 &yet, LLC.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+-->
+
+</head>
+<body style="background: cornsilk">
+
+<h1>Texture AA tests</h1>
+
+<h2>The demo, already...</h2>
+
+<div id="frames"></div>
+
+<canvas id="viewport" width="640" height="480"></canvas>
+
+<script id="vertex_shader" type="x-shader/x-vertex">
+
+uniform mat4 modelViewProjMatrix;
+
+attribute vec2 vPosition;
+varying vec2 textureCoord;
+
+void main(void) {
+    gl_Position.xy = vPosition;
+    gl_Position.z = 0.0;
+	gl_Position.w = 1.0;
+    gl_Position = modelViewProjMatrix * gl_Position;
+}
+
+</script>
+
+
+<script id="fragment_shader" type="x-shader/x-fragment">
+
+uniform mediump vec4 color;
+
+void main(void) {
+    gl_FragColor = color;
+}
+
+</script>
+
+
+<script type="text/javascript">
+//var gl, canvas;
+var animating, viewTransform, vPositionIdx, texture, polygons, host;
+
+canvas = document.getElementById('viewport');
+if (canvas.getContext) {
+    gl = canvas.getContext('experimental-webgl');
+}
+
+if (!gl) {
+    $(canvas).replaceWith("<span style='border: 2px dashed red; display: block; padding: 2em; font-style: italic'>Sorry, your browser doesn't appear to support WebGL. Please see the instructions above.</span>");
+    $('#toggle_animation').hide();
+    throw Error("WebGL not available");
+}
+
+if (!Float32Array.prototype.set) {
+	// FF4 doesn't conform to Khronos typed array draft
+	// NOTE: this doesn't either (e.g. it fails if array is a typed array, etc.)
+	Float32Array.prototype.set = function (array, offset) {
+		offset = offset || 0;
+		array.forEach(function (val, i) {
+			this[i+offset] = val;
+		}, this);
+	}
+	//Uint8Array.prototype.set = Float32Array.prototype.set;
+}
+
+gl.console = ("console" in window) ? window.console : { log: function() { } };
+gl.e = gl.console.logErrors = function () {
+    gl.finish();
+	var err, NAMES = {1280:'INVALID_ENUM', 1281:'INVALID_VALUE', 1282:'INVALID_OPERATION', 1283:'STACK_OVERFLOW', 1284:'STACK_UNDERFLOW', 1285:'OUT_OF_MEMORY'};
+	while (err = gl.getError()) {
+		gl.console.log(NAMES[err]);
+	}
+};
+
+gl.program = gl.createProgram();
+gl.attachShader(gl.program, loadShader(gl, 'vertex_shader'));
+gl.attachShader(gl.program, loadShader(gl, 'fragment_shader'));
+gl.linkProgram(gl.program);
+gl.useProgram(gl.program);
+
+gl.uniform4f(gl.getUniformLocation(gl.program, "color"), 0, 0, 1, 1);
+vPositionIdx = gl.getAttribLocation(gl.program, 'vPosition');
+gl.enableVertexAttribArray(vPositionIdx);
+
+// modelViewProjMatrix
+viewTransform = new J3DIMatrix4();
+viewTransform.scale(1.0, canvas.width / canvas.height);
+//viewTransform.scale(5);
+gl.uniformMatrix4fv(gl.getUniformLocation(gl.program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
+
+// DRAW IT!
+gl.clearColor(0,0,0,0);
+gl.clearDepth(1);
+gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+gl.lineWidth(10);
+
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-0.5, -0.1, 0.5, 0.1]), gl.STATIC_DRAW);
+gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
+gl.drawArrays(gl.LINE_STRIP, 0, 2);
+
+</script>
+
+
+<hr />
+Copyright &copy; 2010 &amp;yet, LLC. Released under the terms of the MIT license.
+
+</body>
+</html>
