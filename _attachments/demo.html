@@ -276,7 +276,12 @@ texture.image.src = "HYP_50M_SR_W.jpg";
 
 // setup vector overlay
 polygons = [];
-host = 'http://localhost:5984/world/';
+if (document.location.protocol === 'file:') {
+    host = 'http://localhost:5984/world/';
+} else {
+    host = '../../';
+}
+
 $.get(host + '_all_docs', function (result) {
     var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
     countryList.forEach(function (docId) {
