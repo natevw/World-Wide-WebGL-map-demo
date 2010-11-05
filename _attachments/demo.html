@@ -97,15 +97,18 @@ void main(void) {
     vec2 coord = radians(vPosition.xy);
     textureCoord = vPosition.xy / vec2(360.0, -180.0) + 0.5;
 	
+    vec2 mercatorResult = vec2(coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
+    mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
+    
 	float pos = abs(coord.y * M_2_PI) * 18.0;
 	int idx1 = int(floor(pos));
 	int idx2 = int(ceil(pos));
 	vec2 robinsonRow = mix(robinsonParallels[idx1], robinsonParallels[idx2], fract(pos));
     
+    coord.x -= M_PI;
+    if (coord.x < -M_PI) coord.x += 2.0 * M_PI;
     vec2 robinsonResult = vec2(robinsonRow.x * coord.x * M_1_PI,
                                sign(coord.y) * robinsonRow.y * RBSN_SCALE);
-    vec2 mercatorResult = vec2(coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
-    mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
     
     gl_Position.xy = mix(robinsonResult, mercatorResult, blend);
 	gl_Position.z = vPosition.z;
