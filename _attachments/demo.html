@@ -288,10 +288,21 @@ $.get(host + '_all_docs', function (result) {
                 shapes = [doc.geometry.coordinates];
             }
             shapes.forEach(function (polygon) {
-                var sourceArray, vertices, vbo;
+                var sourceArray, prevPair, vertices, vbo;
                 
                 // unzip the sourceArray
-                sourceArray = polygon[0];   //.filter(function (pair, i) { return !(i % 10); });
+                sourceArray = polygon[0].filter(function (pair) {
+                    if (!prevPair || (Math.pow(prevPair[0]-pair[0], 2) + Math.pow(prevPair[1]-pair[1], 2)) > 0.125 ) {
+                        prevPair = pair;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                });
+                if (sourceArray.length < 3) {
+                    return;
+                }
+                
                 vertices = new Float32Array(sourceArray.length * 2);
                 sourceArray.forEach(function (pair, i) {
                     vertices.set(pair, 2*i);
