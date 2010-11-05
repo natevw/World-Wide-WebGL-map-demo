@@ -90,25 +90,25 @@ uniform vec2 robinsonParallels[19];
 uniform mat4 modelViewProjMatrix;
 uniform float blend;
 
-attribute vec3 vPosition;
+attribute vec2 vPosition;
 varying vec2 textureCoord;
 
 void main(void) {
-    vec2 coord = radians(vPosition.xy);
-    textureCoord = vPosition.xy / vec2(360.0, -180.0) + 0.5;
+    vec2 coord = radians(vPosition);
+    textureCoord = vPosition / vec2(360.0, -180.0) + 0.5;
 	
-    vec2 mercatorResult = vec2(-coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
-    mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
-    
 	float pos = abs(coord.y * M_2_PI) * 18.0;
 	int idx1 = int(floor(pos));
 	int idx2 = int(ceil(pos));
 	vec2 robinsonRow = mix(robinsonParallels[idx1], robinsonParallels[idx2], fract(pos));
+    
     vec2 robinsonResult = vec2(robinsonRow.x * coord.x * M_1_PI,
                                sign(coord.y) * robinsonRow.y * RBSN_SCALE);
+    vec2 mercatorResult = vec2(-coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
+    mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
     
     gl_Position.xy = mix(robinsonResult, mercatorResult, blend);
-	gl_Position.z = vPosition.z;
+	gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
 }
@@ -229,7 +229,7 @@ function switchToProgram(program, scale, blend) {
     // modelViewProjMatrix
     viewTransform = new J3DIMatrix4();
     viewTransform.scale(1.0, canvas.width / canvas.height);
-    viewTransform.scale(scale, scale, 2);
+    viewTransform.scale(scale);
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
     
     // blend
@@ -276,7 +276,6 @@ texture.image.src = "HYP_50M_SR_W.jpg";
 
 // setup vector overlay
 polygons = [];
-//host = '../../';
 host = 'http://localhost:5984/world/';
 $.get(host + '_all_docs', function (result) {
     var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
@@ -288,64 +287,22 @@ $.get(host + '_all_docs', function (result) {
             } else if (doc.geometry.type === 'Polygon') {
                 shapes = [doc.geometry.coordinates];
             }
-            
-            var numVerts, vertices, ringOffset, vbo;
-            
-            numVerts = shapes.reduce(function (totalLength, polygon) {
-                return totalLength + polygon[0].length;
-            }, 0);
-            numVerts += 2 * shapes.length;
-            vertices = new Float32Array(numVerts * 3);
-            
-            // TODO: generate one line with each outer polygon ring leaving the clip plane
-            ringOffset = 0;
             shapes.forEach(function (polygon) {
-                var outerRing, ringLength;
+                var sourceArray, vertices, vbo;
                 
-                outerRing = polygon[0];
-                ringLength = outerRing.length;
-                if (!ringLength) {
-                    // code stays much simpler if we assume every ring has at least one vertex
-                    throw Error("Bad ring, no biscuit!");
-                }
-                
-                vertices.set(outerRing[0], ringOffset);
-                vertices[ringOffset + 2] = -1;
-                ringOffset += 3;
-                
-                outerRing.forEach(function (pair, i) {
-                    vertices.set(pair, ringOffset + 3*i);
+                // unzip the sourceArray
+                sourceArray = polygon[0];   //.filter(function (pair, i) { return !(i % 10); });
+                vertices = new Float32Array(sourceArray.length * 2);
+                sourceArray.forEach(function (pair, i) {
+                    vertices.set(pair, 2*i);
                 });
-                ringOffset += 3*ringLength;
                 
-                vertices.set(outerRing[ringLength - 1], ringOffset);
-                vertices[ringOffset + 2] = -1;
-                ringOffset += 3;
+                // copy to buffer
+                vbo = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+                polygons.push({buffer: vbo, vertexCount: vertices.length / 2});
             });
-            
-            oldNumVerts = numVerts;
-            oldVertices = vertices;
-            numVerts = 2 * oldNumVerts - 2;
-            vertices = new Float32Array(numVerts * 3);
-            
-            vertices[0] = oldVertices[0];
-            vertices[1] = oldVertices[1];
-            vertices[2] = oldVertices[2];
-            for (i = 1; i < oldNumVerts - 1; i += 1) {
-                vertices[6*i+0] = vertices[6*i-3] = oldVertices[3*i+0];
-                vertices[6*i+1] = vertices[6*i-2] = oldVertices[3*i+1];
-                vertices[6*i+2] = vertices[6*i-1] = oldVertices[3*i+2];
-            }
-            vertices[6*i-3] = oldVertices[3*i+0];
-            vertices[6*i-2] = oldVertices[3*i+1];
-            vertices[6*i-1] = oldVertices[3*i+2];
-            
-            
-            // copy to buffer
-            vbo = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-            polygons.push({buffer: vbo, vertexCount: vertices.length / 3});
             
             if (!animating) {
                 draw(0.75, 0);
@@ -377,8 +334,8 @@ function draw(scale, blend) {
     
     polygons.forEach(function (polygon) {
         gl.bindBuffer(gl.ARRAY_BUFFER, polygon.buffer);
-        gl.vertexAttribPointer(vPositionIdx, 3, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.LINES, 0, polygon.vertexCount);
+        gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.LINE_LOOP, 0, polygon.vertexCount);
     });
 }
 
