@@ -46,11 +46,12 @@ THE SOFTWARE.
 
 uniform mat4 modelViewProjMatrix;
 
-attribute vec2 vPosition;
+attribute vec3 vPosition;
 varying vec2 textureCoord;
 
 void main(void) {
-    gl_Position.xy = vPosition;
+    gl_Position.xy = vPosition.xy;
+    gl_Position.y += sign(vPosition.z) * 0.0016;
     gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
@@ -126,12 +127,21 @@ gl.uniformMatrix4fv(gl.getUniformLocation(gl.program, 'modelViewProjMatrix'), fa
 gl.clearColor(0,0,0,0);
 gl.clearDepth(1);
 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-gl.lineWidth(10);
+gl.lineWidth(1);
+
+a = [[0, 0.3], [-0.5, -0.1], [0.5, 0.1], [0.55, 0.2]];
+
+verts = [];
+a.forEach(function (pair, i) {
+    console.log(JSON.stringify(pair.concat(42)));
+    verts.push.apply(verts, pair.concat(-5));
+    verts.push.apply(verts, pair.concat(+5));
+});
 
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0.3, -0.5, -0.1, 0.5, 0.1, 0.55, 0.2]), gl.STATIC_DRAW);
-gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
-gl.drawArrays(gl.LINE_STRIP, 0, 4);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+gl.vertexAttribPointer(vPositionIdx, 3, gl.FLOAT, false, 0, 0);
+gl.drawArrays(gl.TRIANGLE_STRIP, 0, verts.length/3);
 
 </script>
 
