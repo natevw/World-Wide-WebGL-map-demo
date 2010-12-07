@@ -66,7 +66,7 @@ The <a href="https://github.com/andyet/World-Wide-WebGL-map-demo">source is on G
 </p>
 
 <p>
-[behind the scenes blog post]
+More info: <a href="http://cloudcarto.tumblr.com/post/2087091647/making-maps-with-webgl">behind-the-scenes blog post</a>.
 </p>
 
 
@@ -276,7 +276,8 @@ texture.image.src = "HYP_50M_SR_W.jpg";
 
 // setup vector overlay
 polygons = [];
-host = 'http://localhost:5984/world/';
+//host = 'http://localhost:5984/world/';
+host = '../../';
 $.get(host + '_all_docs', function (result) {
     var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
     countryList.forEach(function (docId) {
