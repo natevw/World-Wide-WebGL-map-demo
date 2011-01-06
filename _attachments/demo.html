@@ -145,8 +145,11 @@ void main(void) {
 var animating, viewTransform, vPositionIdx, texture, polygons, host;
 
 canvas = document.getElementById('viewport');
-if (canvas.getContext) {
+try {
+    // FF4.0b6 throws an exception if WebGL context not available
     gl = canvas.getContext('experimental-webgl');
+} catch (e) {
+    gl = null;
 }
 
 if (!gl) {
