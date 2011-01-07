@@ -54,13 +54,25 @@ varying vec2 textureCoord;
 
 void main(void) {
     vec2 seg1 = vPosition.xy - vPositionPrev.xy;
+    float segLen1 = length(seg1);
     vec2 seg2 = vPositionNext.xy - vPosition.xy;
-    // http://www.proofwiki.org/wiki/Angular_bisector_vector
-    vec2 bisector = (seg1 * length(seg2)) + (seg2 * length(seg1));
-    textureCoord = bisector;
+    float segLen2 = length(seg2);
     
-    gl_Position.xy = vPosition.xy;
-    gl_Position.y += sign(vPosition.z) * 0.0016;
+    // http://www.proofwiki.org/wiki/Angular_bisector_vector
+    vec2 bisector = vec2(0.0);
+    if (segLen1 > 0.0) {
+        bisector += seg1 / segLen1;
+    }
+    if (segLen2 > 0.0) {
+        bisector += seg2 / segLen2;
+    }
+    // http://mathworld.wolfram.com/PerpendicularVector.html
+    vec2 normalToLine = vec2(-bisector.y, bisector.x) / length(bisector);
+    textureCoord = normalToLine;
+    
+    gl_PointSize = 5.0 * length(normalToLine);
+    
+    gl_Position.xy = vPosition.xy + normalToLine * vPosition.z;
     gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
@@ -78,7 +90,7 @@ void main(void) {
     gl_FragColor = color;
     mediump float angle = 0.5 + atan(textureCoord.x, textureCoord.y) / 6.3;
     gl_FragColor.rgb = vec3(angle);
-    
+    //gl_FragColor.a = 0.75;
 }
 
 </script>
@@ -148,7 +160,7 @@ gl.lineWidth(1);
 
 verts = [];
 function append(pair) {
-    var w = 9999;
+    var w = 0.05;
     verts.push.apply(verts, pair.concat(-w));
     verts.push.apply(verts, pair.concat(+w));
 }
@@ -165,8 +177,9 @@ gl.vertexAttribPointer(vPositionPrevIdx, 3, gl.FLOAT, false, 0, 0*2*3*4);   // 2
 gl.vertexAttribPointer(vPositionIdx,     3, gl.FLOAT, false, 0, 1*2*3*4);
 gl.vertexAttribPointer(vPositionNextIdx, 3, gl.FLOAT, false, 0, 2*2*3*4);
 
-//gl.drawArrays(gl.TRIANGLE_STRIP, 0, verts.length/3 - 2);
-gl.drawArrays(gl.LINE_STRIP, 0, verts.length/3 - 2*2);
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+gl.drawArrays(gl.TRIANGLE_STRIP, 0, verts.length/3 - 2*2);
 
 </script>
 
