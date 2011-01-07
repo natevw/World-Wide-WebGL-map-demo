@@ -68,7 +68,7 @@ void main(void) {
     }
     // http://mathworld.wolfram.com/PerpendicularVector.html
     vec2 normalToLine = vec2(-bisector.y, bisector.x) / length(bisector);
-    textureCoord = normalToLine;
+    textureCoord.x = sign(vPosition.z);
     
     gl_PointSize = 5.0 * length(normalToLine);
     
@@ -88,9 +88,10 @@ varying mediump vec2 textureCoord;
 
 void main(void) {
     gl_FragColor = color;
-    mediump float angle = 0.5 + atan(textureCoord.x, textureCoord.y) / 6.3;
-    gl_FragColor.rgb = vec3(angle);
-    //gl_FragColor.a = 0.75;
+    //gl_FragColor.rgb = 0.5 + vec3(textureCoord.x) / 2.0;
+    mediump float mag = abs(textureCoord.x);
+    mediump float bound = 0.9;
+    gl_FragColor.a = mag > bound ? 1.0 - smoothstep(bound, 1.0, mag) : 1.0;
 }
 
 </script>
@@ -169,7 +170,6 @@ a = [[0, 0.3], [-0.5, -0.1], [0.5, 0.1], [0.55, 0.2]];
 append(a[0]);
 a.forEach(append);
 append(a[a.length - 1]);
-console.log(verts);
 
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
