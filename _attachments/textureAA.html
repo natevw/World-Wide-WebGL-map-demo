@@ -47,9 +47,25 @@ THE SOFTWARE.
 uniform mat4 modelViewProjMatrix;
 
 attribute vec3 vPosition;
+attribute vec2 vPositionPrev;
+attribute vec2 vPositionNext;
+
 varying vec2 textureCoord;
 
 void main(void) {
+    vec2 seg1 = vPosition.xy - vPositionPrev.xy;
+    vec2 seg2 = vPositionNext.xy - vPosition.xy;
+    // http://www.proofwiki.org/wiki/Angular_bisector_vector
+    vec2 bisector = (seg1 * length(seg2)) + (seg2 * length(seg1));
+    textureCoord = bisector;
+    //gl_PointSize = 50.0 * length(seg1); // TODO: why isn't seg1 length 0 on first point?
+    gl_PointSize = 50.0 * length(vPositionNext - vPositionPrev);
+    
+    /*
+    gl_PointSize = 0.5 + atan(seg1.x, seg1.y) / 6.3;
+    gl_PointSize *= 100.0;
+    */
+    
     gl_Position.xy = vPosition.xy;
     gl_Position.y += sign(vPosition.z) * 0.0016;
     gl_Position.z = 0.0;
@@ -63,9 +79,15 @@ void main(void) {
 <script id="fragment_shader" type="x-shader/x-fragment">
 
 uniform mediump vec4 color;
+varying mediump vec2 textureCoord;
 
 void main(void) {
     gl_FragColor = color;
+    //mediump float angle = 1.0 + atan(textureCoord.x, textureCoord.y) / 3.15;
+    //gl_FragColor.rgb = vec3(angle);
+    gl_FragColor.g = 0.0;
+    gl_FragColor.rb = textureCoord;
+    
 }
 
 </script>
@@ -115,6 +137,8 @@ gl.useProgram(gl.program);
 
 gl.uniform4f(gl.getUniformLocation(gl.program, "color"), 0, 0, 1, 1);
 vPositionIdx = gl.getAttribLocation(gl.program, 'vPosition');
+vPositionPrevIdx = gl.getAttribLocation(gl.program, 'vPositionPrev');
+vPositionNextIdx = gl.getAttribLocation(gl.program, 'vPositionNext');
 gl.enableVertexAttribArray(vPositionIdx);
 
 // modelViewProjMatrix
@@ -129,19 +153,27 @@ gl.clearDepth(1);
 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 gl.lineWidth(1);
 
-a = [[0, 0.3], [-0.5, -0.1], [0.5, 0.1], [0.55, 0.2]];
-
 verts = [];
-a.forEach(function (pair, i) {
-    console.log(JSON.stringify(pair.concat(42)));
-    verts.push.apply(verts, pair.concat(-5));
-    verts.push.apply(verts, pair.concat(+5));
-});
+function append(pair) {
+    var w = 9999;
+    verts.push.apply(verts, pair.concat(-w));
+    verts.push.apply(verts, pair.concat(+w));
+}
+
+a = [[0, 0.3], [-0.5, -0.1], [0.5, 0.1], [0.55, 0.2]];
+append(a[0]);
+a.forEach(append);
+append(a[a.length - 1]);
+console.log(verts);
 
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-gl.vertexAttribPointer(vPositionIdx, 3, gl.FLOAT, false, 0, 0);
-gl.drawArrays(gl.TRIANGLE_STRIP, 0, verts.length/3);
+gl.vertexAttribPointer(vPositionPrevIdx, 3, gl.FLOAT, false, 0, 0*2*3*4);   // 2 sets of 3 4-byte floats
+gl.vertexAttribPointer(vPositionIdx,     3, gl.FLOAT, false, 0, 1*2*3*4);
+gl.vertexAttribPointer(vPositionNextIdx, 3, gl.FLOAT, false, 0, 2*2*3*4);
+
+//gl.drawArrays(gl.TRIANGLE_STRIP, 0, verts.length/3 - 2);
+gl.drawArrays(gl.POINTS, 0, verts.length/3 - 2*2);
 
 </script>
 
