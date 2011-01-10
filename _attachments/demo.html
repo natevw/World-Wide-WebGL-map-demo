@@ -66,7 +66,7 @@ The <a href="https://github.com/andyet/World-Wide-WebGL-map-demo">source is on G
 </p>
 
 <p>
-[behind the scenes blog post]
+More info: <a href="http://cloudcartography.com/post/2087091647/making-maps-with-webgl">behind-the-scenes blog post</a>.
 </p>
 
 
@@ -104,7 +104,7 @@ void main(void) {
     
     vec2 robinsonResult = vec2(robinsonRow.x * coord.x * M_1_PI,
                                sign(coord.y) * robinsonRow.y * RBSN_SCALE);
-    vec2 mercatorResult = vec2(-coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
+    vec2 mercatorResult = vec2(coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
     mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
     
     gl_Position.xy = mix(robinsonResult, mercatorResult, blend);
@@ -145,8 +145,11 @@ void main(void) {
 var animating, viewTransform, vPositionIdx, texture, polygons, host;
 
 canvas = document.getElementById('viewport');
-if (canvas.getContext) {
+try {
+    // FF4.0b6 throws an exception if WebGL context not available
     gl = canvas.getContext('experimental-webgl');
+} catch (e) {
+    gl = null;
 }
 
 if (!gl) {
@@ -281,7 +284,6 @@ if (document.location.protocol === 'file:') {
 } else {
     host = '../../';
 }
-
 $.get(host + '_all_docs', function (result) {
     var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
     countryList.forEach(function (docId) {
