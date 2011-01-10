@@ -50,7 +50,7 @@ attribute vec3 vPosition;
 attribute vec3 vPositionPrev;
 attribute vec3 vPositionNext;
 
-varying vec2 textureCoord;
+varying highp vec2 normalDistance;
 
 bool offsetSegment(vec3 A, vec3 B, out vec2 offsetA, out vec2 offsetB) {
     vec2 segVector = B.xy - A.xy;
@@ -91,24 +91,8 @@ void main(void) {
     gl_Position = modelViewProjMatrix * gl_Position;
     
     gl_PointSize = 5.0;
-    
-    textureCoord.x = sign(vPosition.z);
-    
-    /*
-    vec2 seg1 = vPosition.xy - vPositionPrev.xy;
-    float segLen1 = length(seg1);
-    vec2 seg2 = vPositionNext.xy - vPosition.xy;
-    float segLen2 = length(seg2);
-    
-    // http://www.proofwiki.org/wiki/Angular_bisector_vector
-    vec2 bisector = vec2(0.0);
-    if (segLen1 > 0.0) {
-        bisector += seg1 / segLen1;
-    }
-    if (segLen2 > 0.0) {
-        bisector += seg2 / segLen2;
-    }
-    */
+    normalDistance.s = sign(vPosition.z);
+    normalDistance.t = abs(vPosition.z);
 }
 
 </script>
@@ -116,15 +100,17 @@ void main(void) {
 
 <script id="fragment_shader" type="x-shader/x-fragment">
 
+// fake http://www.khronos.org/registry/gles/extensions/OES/OES_standard_derivatives.txt on gl_fragCoord
+const mediump float pixelWidth = 0.005;
+
 uniform mediump vec4 color;
-varying mediump vec2 textureCoord;
+varying highp vec2 normalDistance;
 
 void main(void) {
     gl_FragColor = color;
-    //gl_FragColor.rgb = 0.5 + vec3(textureCoord.x) / 2.0;
-    mediump float mag = abs(textureCoord.x);
-    mediump float bound = 1.0;
-    gl_FragColor.a = mag > bound ? 1.0 - smoothstep(bound, 1.0, mag) : 1.0;
+    highp float val = abs(normalDistance.s);
+    highp float bound = (normalDistance.t - pixelWidth) / normalDistance.t;
+    gl_FragColor.a *= val > bound ? 1.0 - smoothstep(bound, 1.0, val) : 1.0;
 }
 
 </script>
