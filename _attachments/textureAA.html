@@ -1,3 +1,4 @@
+<!doctype html>
 <html>
 <head>
 <title>&amp;yet demo - World Wide WebGL</title>
@@ -9,7 +10,7 @@
 <!--
 
 Written by Nathan Vander Wilt.
-Copyright (c) 2010 &yet, LLC.
+Copyright (c) 2010-2011 &yet, LLC.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -58,8 +59,8 @@ bool offsetSegment(vec3 A, vec3 B, out vec2 offsetA, out vec2 offsetB) {
     if (segLen > 0.0) {
         // http://mathworld.wolfram.com/PerpendicularVector.html
         vec2 segNormal = vec2(-segVector.y, segVector.x) / segLen;
-        offsetA = A.xy + segNormal * A.z;
-        offsetB = B.xy + segNormal * B.z;
+        offsetA = A.xy + segNormal * A.z / 2.0;
+        offsetB = B.xy + segNormal * B.z / 2.0;
         return true;
     }
     return false;
@@ -92,7 +93,7 @@ void main(void) {
     
     gl_PointSize = 5.0;
     normalDistance.s = sign(vPosition.z);
-    normalDistance.t = abs(vPosition.z);
+    normalDistance.t = abs(vPosition.z) / 2.0;
 }
 
 </script>
@@ -178,17 +179,16 @@ gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 gl.lineWidth(1);
 
 verts = [];
-var w = 0.25;
-function append(pair) {
-    w *= 0.5;
-    verts.push.apply(verts, pair.concat(-w));
-    verts.push.apply(verts, pair.concat(+w));
+function append(p) {
+    verts.push(p[0], p[1], -p[2]);
+    verts.push(p[0], p[1], +p[2]);
 }
 
-a = [[0, 0.3], [-0.5, -0.1], [0.5, 0.1], [0.55, 0.2]];
+a = [[0, 0.3, 0.0075], [-0.5, -0.1, 0.025], [0.5, 0.1, 0.0075], [0.55, 0.2, 0.0075]];
 append(a[0]);
 a.forEach(append);
 append(a[a.length - 1]);
+console.log(verts);
 
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
@@ -206,8 +206,8 @@ gl.drawArrays(1 ? gl.TRIANGLE_STRIP : gl.POINTS, 0, verts.length/3 - 2*2);
 </script>
 
 
-<hr />
-Copyright &copy; 2010 &amp;yet, LLC. Released under the terms of the MIT license.
+<hr>
+Copyright &copy; 2010&ndash;2011 &amp;yet, LLC. Released under the terms of the MIT license.
 
 </body>
 </html>
