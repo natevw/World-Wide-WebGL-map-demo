@@ -52,17 +52,49 @@ attribute vec3 vPositionNext;
 
 varying vec2 textureCoord;
 
-void offsetSegment(vec3 A, vec3 B, out vec2 offsetA, out vec2 offsetB) {
+bool offsetSegment(vec3 A, vec3 B, out vec2 offsetA, out vec2 offsetB) {
     vec2 segVector = B.xy - A.xy;
-    vec2 segNormal = vec2(-segVector.y, segVector.x) / length(segVector);   // http://mathworld.wolfram.com/PerpendicularVector.html
-    offsetA = A.xy + segNormal * A.z;
-    offsetB = B.xy + segNormal * B.z;
+    float segLen = length(segVector);
+    if (segLen > 0.0) {
+        // http://mathworld.wolfram.com/PerpendicularVector.html
+        vec2 segNormal = vec2(-segVector.y, segVector.x) / segLen;
+        offsetA = A.xy + segNormal * A.z;
+        offsetB = B.xy + segNormal * B.z;
+        return true;
+    }
+    return false;
+}
+
+vec2 intersectSegments(vec2 seg1a, vec2 seg1b, vec2 seg2a, vec2 seg2b) {
+    // http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline2d/
+    vec2 seg1 = seg1b - seg1a;
+    vec2 seg2 = seg2b - seg2a;
+    vec2 segD = seg1a - seg2a;
+    float numer = (seg2.x * segD.y) - (seg2.y * segD.x);
+    float denom = (seg2.y * seg1.x) - (seg2.x * seg1.y);
+    return seg1a + (numer / denom) * seg1;
 }
 
 void main(void) {
-    vec2 seg1_a, seg1_b;
-    offsetSegment(vPositionPrev, vPosition, seg1_a, seg1_b);
+    vec2 seg1a, seg1b, seg2a, seg2b;
+    bool prevOffset = offsetSegment(vPositionPrev, vPosition, seg1a, seg1b);
+    bool nextOffset = offsetSegment(vPosition, vPositionNext, seg2a, seg2b);
+    if (prevOffset && nextOffset) {
+        gl_Position.xy = intersectSegments(seg1a, seg1b, seg2a, seg2b);
+    } else if (prevOffset) {
+        gl_Position.xy = seg1b;
+    } else if (nextOffset) {
+        gl_Position.xy = seg2a;
+    }
+    gl_Position.z = 0.0;
+	gl_Position.w = 1.0;
+    gl_Position = modelViewProjMatrix * gl_Position;
     
+    gl_PointSize = 5.0;
+    
+    textureCoord.x = sign(vPosition.z);
+    
+    /*
     vec2 seg1 = vPosition.xy - vPositionPrev.xy;
     float segLen1 = length(seg1);
     vec2 seg2 = vPositionNext.xy - vPosition.xy;
@@ -76,16 +108,7 @@ void main(void) {
     if (segLen2 > 0.0) {
         bisector += seg2 / segLen2;
     }
-    
-    vec2 normalToLine = vec2(-bisector.y, bisector.x) / length(bisector);
-    textureCoord.x = sign(vPosition.z);
-    
-    gl_PointSize = 5.0 * length(normalToLine);
-    
-    gl_Position.xy = vPosition.xy + normalToLine * vPosition.z;
-    gl_Position.z = 0.0;
-	gl_Position.w = 1.0;
-    gl_Position = modelViewProjMatrix * gl_Position;
+    */
 }
 
 </script>
@@ -100,7 +123,7 @@ void main(void) {
     gl_FragColor = color;
     //gl_FragColor.rgb = 0.5 + vec3(textureCoord.x) / 2.0;
     mediump float mag = abs(textureCoord.x);
-    mediump float bound = 0.9;
+    mediump float bound = 1.0;
     gl_FragColor.a = mag > bound ? 1.0 - smoothstep(bound, 1.0, mag) : 1.0;
 }
 
@@ -160,7 +183,6 @@ gl.enableVertexAttribArray(vPositionNextIdx);
 // modelViewProjMatrix
 viewTransform = new J3DIMatrix4();
 viewTransform.scale(1.0, canvas.width / canvas.height);
-//viewTransform.scale(5);
 gl.uniformMatrix4fv(gl.getUniformLocation(gl.program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
 
 // DRAW IT!
@@ -170,8 +192,9 @@ gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 gl.lineWidth(1);
 
 verts = [];
+var w = 0.25;
 function append(pair) {
-    var w = 0.05;
+    w *= 0.5;
     verts.push.apply(verts, pair.concat(-w));
     verts.push.apply(verts, pair.concat(+w));
 }
@@ -187,9 +210,12 @@ gl.vertexAttribPointer(vPositionPrevIdx, 3, gl.FLOAT, false, 0, 0*2*3*4);   // 2
 gl.vertexAttribPointer(vPositionIdx,     3, gl.FLOAT, false, 0, 1*2*3*4);
 gl.vertexAttribPointer(vPositionNextIdx, 3, gl.FLOAT, false, 0, 2*2*3*4);
 
+gl.enable(gl.CULL_FACE);
+gl.frontFace(gl.CW);
+
 gl.enable(gl.BLEND);
 gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-gl.drawArrays(gl.TRIANGLE_STRIP, 0, verts.length/3 - 2*2);
+gl.drawArrays(1 ? gl.TRIANGLE_STRIP : gl.POINTS, 0, verts.length/3 - 2*2);
 
 </script>
 
