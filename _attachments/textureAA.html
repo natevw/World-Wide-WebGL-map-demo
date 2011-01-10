@@ -101,14 +101,15 @@ void main(void) {
 
 <script id="fragment_shader" type="x-shader/x-fragment">
 
-// fake http://www.khronos.org/registry/gles/extensions/OES/OES_standard_derivatives.txt on gl_fragCoord
-const mediump float pixelWidth = 0.005;
-
 uniform mediump vec4 color;
 varying highp vec2 normalDistance;
 
 void main(void) {
     gl_FragColor = color;
+    return;
+    
+    // fake http://www.khronos.org/registry/gles/extensions/OES/OES_standard_derivatives.txt on gl_fragCoord
+    const mediump float pixelWidth = 0.005;
     highp float val = abs(normalDistance.s);
     highp float bound = (normalDistance.t - pixelWidth) / normalDistance.t;
     gl_FragColor.a *= val > bound ? 1.0 - smoothstep(bound, 1.0, val) : 1.0;
@@ -184,7 +185,8 @@ function append(p) {
     verts.push(p[0], p[1], +p[2]);
 }
 
-a = [[0, 0.3, 0.0075], [-0.5, -0.1, 0.025], [0.5, 0.1, 0.0075], [0.55, 0.2, 0.0075]];
+//a = [[0, 0.3, 0.0075], [-0.5, -0.1, 0.025], [0.5, 0.1, 0.0075], [0.55, 0.2, 0.0075]];
+a = [[-0.7, -0.7, 0.01], [-0.5, -0.5, 0.075], [0, 0, 0.1], [0.25, 0.25, 0.125], [0.5, 0.5, 0.1], [0.7, 0.7, 0.025]];
 append(a[0]);
 a.forEach(append);
 append(a[a.length - 1]);
