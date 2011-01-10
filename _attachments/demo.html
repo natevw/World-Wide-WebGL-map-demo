@@ -96,6 +96,11 @@ varying vec2 textureCoord;
 void main(void) {
     vec2 coord = radians(vPosition);
     textureCoord = vPosition / vec2(360.0, -180.0) + 0.5;
+    
+    coord.x += 1.0;
+    if (coord.x > M_PI) {
+        coord.x -= 2.0 * M_PI;
+    }
 	
 	float pos = abs(coord.y * M_2_PI) * 18.0;
 	int idx1 = int(floor(pos));
@@ -255,8 +260,8 @@ texture.image.onload = function () {
     
     var vertices, b, x, xIdx, y, yIdx, vbo;
     b = {
-        startX: -180, stepX: 5, countX: 72,
-        startY: -90, stepY: 5, countY: 37
+        startX: -180, stepX: 0.5, countX: 720,
+        startY: -90, stepY: 0.5, countY: 361
     };
     for (x = b.startX, xIdx = 0; xIdx < b.countX; xIdx += 1, x += b.stepX) {
         vertices = new Float32Array(4 * b.countY);
@@ -334,6 +339,9 @@ function draw(scale, blend) {
     gl.clearColor(0,0,0,0);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    gl.enable(gl.CULL_FACE);
+    gl.frontFace(gl.CW);
     
     switchToProgram(gl.rasterProgram, scale, blend);
     
