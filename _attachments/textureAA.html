@@ -43,7 +43,7 @@ THE SOFTWARE.
 
 <canvas id="viewport" width="640" height="480"></canvas>
 
-<script id="vertex_shader" type="x-shader/x-vertex">
+<script id="line_shader" type="x-shader/x-vertex">
 
 uniform mat4 modelViewProjMatrix;
 
@@ -190,7 +190,6 @@ a = [[-0.7, -0.7, 0.01], [-0.5, -0.5, 0.075], [0, 0, 0.1], [0.25, 0.25, 0.125], 
 append(a[0]);
 a.forEach(append);
 append(a[a.length - 1]);
-console.log(verts);
 
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
