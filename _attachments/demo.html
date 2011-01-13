@@ -119,8 +119,8 @@ bvec3 project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
     y = mix(robinsonY, clamp(mercatorY, -2.5, 2.5), blend);
     
     // TODO: this just works for the demo, it may not be generally correct
-    bvec3 leftish = lessThanEqual(lam, vec3(0.0));
-    bvec3 rightish = greaterThanEqual(lam, vec3(0.0));
+    bvec3 leftish = lessThan(lam, vec3(-M_PI/2.0));
+    bvec3 rightish = greaterThan(lam, vec3(M_PI/2.0));
     bool crosses01 = (leftish[0] && rightish[1]) || (rightish[0] && leftish[1]);
     bool crosses12 = (leftish[1] && rightish[2]) || (rightish[1] && leftish[2]);
     return bvec3(crosses01, false, crosses12);
