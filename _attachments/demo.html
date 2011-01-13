@@ -92,14 +92,15 @@ uniform vec2 robinsonParallels[19];
 uniform float blend;
 uniform float meridian;
 
-vec3 wrapLam(vec3 lam) {
+// return lam in range [-M_PI, M_PI)
+vec3 normalizeLam(vec3 lam) {
     return 2.0 * M_PI * (fract(0.5 * M_1_PI * lam + 0.5) - 0.5);
 }
 
 bvec3 project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
     vec3 phi = radians(lat);
     vec3 lam = radians(lon);
-    lam = wrapLam(lam - meridian);
+    lam = normalizeLam(lam - meridian);
     
     vec3 pos = abs(phi * M_2_PI) * 18.0;
     ivec3 idx1 = ivec3(floor(pos));
@@ -117,12 +118,12 @@ bvec3 project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
     x = mix(robinsonX, mercatorX, blend);
     y = mix(robinsonY, clamp(mercatorY, -2.5, 2.5), blend);
     
-    // TODO: this just works for the demo, it is not generally correct
-    bvec3 leftish = lessThanEqual(lon, vec3(meridian));
-    bvec3 rightish = greaterThan(lon, vec3(meridian));
+    // TODO: this just works for the demo, it may not be generally correct
+    bvec3 leftish = lessThanEqual(lam, vec3(0.0));
+    bvec3 rightish = greaterThanEqual(lam, vec3(0.0));
     bool crosses01 = (leftish[0] && rightish[1]) || (rightish[0] && leftish[1]);
     bool crosses12 = (leftish[1] && rightish[2]) || (rightish[1] && leftish[2]);
-    return bvec3(!crosses01, true, !crosses12);
+    return bvec3(crosses01, false, crosses12);
 }
 
 </script>
@@ -183,16 +184,22 @@ void main(void) {
     vec3 x, y;
     vec3 lat = vec3(vPositionPrev.y, vPosition.y, vPositionNext.y);
     vec3 lon = vec3(vPositionPrev.x, vPosition.x, vPositionNext.x);
-    project(lat, lon, x, y);
-    vec3 positionPrev = vec3(x.x, y.x, vPositionPrev.z);
-    vec3 position = vec3(x.y, y.y, vPosition.z);
-    vec3 positionNext = vec3(x.z, y.z, vPositionNext.z);
+    bvec3 projErr = project(lat, lon, x, y);
+    vec3 positionPrev = vec3(x[0], y[0], vPositionPrev.z);
+    vec3 position = vec3(x[1], y[1], vPosition.z);
+    vec3 positionNext = vec3(x[2], y[2], vPositionNext.z);
+    
+    if (projErr[0] || projErr[2]) {
+        position.z = 0.0;
+    }
     
     vec2 seg1a, seg1b, seg2a, seg2b;
     bool prevOffset = offsetSegment(positionPrev, position, seg1a, seg1b);
     bool nextOffset = offsetSegment(position, positionNext, seg2a, seg2b);
     if (prevOffset && nextOffset) {
-        gl_Position.xy = seg1b; //intersectSegments(seg1a, seg1b, seg2a, seg2b);
+        //gl_Position.xy = (seg1b + seg2a) / 2.0;
+        //gl_Position.xy = intersectSegments(seg1a, seg1b, seg2a, seg2b);
+        gl_Position.xy = seg2a;
     } else if (prevOffset) {
         gl_Position.xy = seg1b;
     } else if (nextOffset) {
@@ -337,7 +344,7 @@ function switchToProgram(program, scale, blend) {
     
     // blend / meridian
     gl.uniform1f(gl.getUniformLocation(program, 'blend'), blend);
-    gl.uniform1f(gl.getUniformLocation(program, 'meridian'), blend * 6.28);
+    gl.uniform1f(gl.getUniformLocation(program, 'meridian'), blend * 6.28 - 3.14);
 }
 
 
@@ -460,7 +467,7 @@ function draw(scale, blend) {
     vPositionPrevIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionPrev');
     vPositionNextIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionNext');
     
-    //gl.disable(gl.CULL_FACE);
+    gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
