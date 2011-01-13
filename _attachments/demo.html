@@ -78,7 +78,9 @@ More info: <a href="http://cloudcartography.com/post/2087091647/making-maps-with
 
 <canvas id="viewport" width="2048" height="1536" style="width: 1024; height: 768"></canvas>
 
-<script id="robinson_vertex_shader" type="x-shader/x-vertex">
+
+
+<script id="projection_vertex_helper" type="x-shader/x-include">
 
 #define M_PI 3.14159265358979323846
 #define M_1_PI 0.31830988618379067154
@@ -87,41 +89,58 @@ More info: <a href="http://cloudcartography.com/post/2087091647/making-maps-with
 #define RBSN_SCALE 0.5072
 uniform vec2 robinsonParallels[19];
 
-uniform mat4 modelViewProjMatrix;
 uniform float blend;
+uniform float meridian;
 
+vec3 wrapLam(vec3 lam) {
+    return 2.0 * M_PI * (fract(0.5 * M_1_PI * lam + 0.5) - 0.5);
+}
+
+bvec3 project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
+    vec3 phi = radians(lat);
+    vec3 lam = radians(lon);
+    lam = wrapLam(lam - meridian);
+    
+    vec3 pos = abs(phi * M_2_PI) * 18.0;
+    ivec3 idx1 = ivec3(floor(pos));
+    ivec3 idx2 = ivec3(ceil(pos));
+    vec2 robinsonRow0 = mix(robinsonParallels[idx1.x], robinsonParallels[idx2.x], fract(pos.x));
+    vec2 robinsonRow1 = mix(robinsonParallels[idx1.y], robinsonParallels[idx2.y], fract(pos.y));
+    vec2 robinsonRow2 = mix(robinsonParallels[idx1.z], robinsonParallels[idx2.z], fract(pos.z));
+    vec3 robinsonPLEN = vec3(robinsonRow0.x, robinsonRow1.x, robinsonRow2.x);
+    vec3 robinsonPDFE = vec3(robinsonRow0.y, robinsonRow1.y, robinsonRow2.y);
+    
+    vec3 robinsonX = robinsonPLEN * lam * M_1_PI;
+    vec3 robinsonY = sign(phi) * robinsonPDFE * RBSN_SCALE;
+    vec3 mercatorX = lam;
+    vec3 mercatorY = log(tan(M_PI/4.0 + phi/2.0));
+    x = mix(robinsonX, mercatorX, blend);
+    y = mix(robinsonY, clamp(mercatorY, -2.5, 2.5), blend);
+    
+    // TODO: this just works for the demo, it is not generally correct
+    bvec3 leftish = lessThanEqual(lon, vec3(meridian));
+    bvec3 rightish = greaterThan(lon, vec3(meridian));
+    bool crosses01 = (leftish[0] && rightish[1]) || (rightish[0] && leftish[1]);
+    bool crosses12 = (leftish[1] && rightish[2]) || (rightish[1] && leftish[2]);
+    return bvec3(!crosses01, true, !crosses12);
+}
+
+</script>
+
+
+<script id="point_vertex_shader" type="x-shader/x-vertex">
+
+uniform mat4 modelViewProjMatrix;
 attribute vec2 vPosition;
 varying vec2 textureCoord;
 
 void main(void) {
-    vec2 coord = radians(vPosition);
     textureCoord = vPosition / vec2(360.0, -180.0) + 0.5;
     
-    coord.x += 1.5;
-    if (coord.x > M_PI) {
-        coord.x -= 2.0 * M_PI;
-    }
-	
-	float pos = abs(coord.y * M_2_PI) * 18.0;
-	int idx1 = int(floor(pos));
-	int idx2 = int(ceil(pos));
-	vec2 robinsonRow = mix(robinsonParallels[idx1], robinsonParallels[idx2], fract(pos));
-    
-    vec2 robinsonResult = vec2(robinsonRow.x * coord.x * M_1_PI,
-                               sign(coord.y) * robinsonRow.y * RBSN_SCALE);
-    vec2 mercatorResult = vec2(coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
-    mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
-    
-    //gl_Position.xy = mix(robinsonResult, mercatorResult, blend);
-    float center = blend * 360.0 - 180.0;
-    gl_Position.x = vPosition.x - center;
-    if (gl_Position.x < -180.0) {
-        gl_Position.x += 360.0;
-    }
-    if (gl_Position.x > 180.0) {
-        gl_Position.x -= 360.0;
-    }
-    gl_Position.y = vPosition.y;
+    vec3 x, y;
+    project(vec3(vPosition.y), vec3(vPosition.x), x, y);
+    gl_Position.x = x.x;
+    gl_Position.y = y.y;
 	gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
@@ -133,8 +152,6 @@ void main(void) {
 <script id="line_vertex_shader" type="x-shader/x-vertex">
 
 uniform mat4 modelViewProjMatrix;
-uniform float blend;
-
 attribute vec3 vPosition;
 attribute vec3 vPositionPrev;
 attribute vec3 vPositionNext;
@@ -163,9 +180,17 @@ vec2 intersectSegments(vec2 seg1a, vec2 seg1b, vec2 seg2a, vec2 seg2b) {
 }
 
 void main(void) {
+    vec3 x, y;
+    vec3 lat = vec3(vPositionPrev.y, vPosition.y, vPositionNext.y);
+    vec3 lon = vec3(vPositionPrev.x, vPosition.x, vPositionNext.x);
+    project(lat, lon, x, y);
+    vec3 positionPrev = vec3(x.x, y.x, vPositionPrev.z);
+    vec3 position = vec3(x.y, y.y, vPosition.z);
+    vec3 positionNext = vec3(x.z, y.z, vPositionNext.z);
+    
     vec2 seg1a, seg1b, seg2a, seg2b;
-    bool prevOffset = offsetSegment(vPositionPrev, vPosition, seg1a, seg1b);
-    bool nextOffset = offsetSegment(vPosition, vPositionNext, seg2a, seg2b);
+    bool prevOffset = offsetSegment(positionPrev, position, seg1a, seg1b);
+    bool nextOffset = offsetSegment(position, positionNext, seg2a, seg2b);
     if (prevOffset && nextOffset) {
         gl_Position.xy = seg1b; //intersectSegments(seg1a, seg1b, seg2a, seg2b);
     } else if (prevOffset) {
@@ -173,16 +198,6 @@ void main(void) {
     } else if (nextOffset) {
         gl_Position.xy = seg2a;
     }
-    
-    float center = blend * 360.0 - 180.0;
-    gl_Position.x = gl_Position.x - center;
-    if (gl_Position.x < -180.0) {
-        gl_Position.x += 360.0;
-    }
-    if (gl_Position.x > 180.0) {
-        gl_Position.x -= 360.0;
-    }
-    
     gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
@@ -255,14 +270,20 @@ gl.e = gl.console.logErrors = function () {
     gl.console.log("done logging errors");
 };
 
+var proj = document.getElementById('projection_vertex_helper');
+var point = document.getElementById('point_vertex_shader');
+var line = document.getElementById('line_vertex_shader');
+point.text = proj.text + point.text;
+line.text = proj.text + line.text;
+
 gl.shaders = {};
-gl.shaders.robinsonVertex = loadShader(gl, 'robinson_vertex_shader');
+gl.shaders.pointVertex = loadShader(gl, 'point_vertex_shader');
 gl.shaders.lineVertex = loadShader(gl, 'line_vertex_shader');
 gl.shaders.colorFragment = loadShader(gl, 'color_fragment_shader');
 gl.shaders.textureFragment = loadShader(gl, 'texture_fragment_shader');
 
 gl.rasterProgram = gl.createProgram();
-gl.attachShader(gl.rasterProgram, gl.shaders.robinsonVertex);
+gl.attachShader(gl.rasterProgram, gl.shaders.pointVertex);
 gl.attachShader(gl.rasterProgram, gl.shaders.textureFragment);
 gl.linkProgram(gl.rasterProgram);
 setupProgram(gl.rasterProgram);
@@ -274,26 +295,22 @@ gl.linkProgram(gl.vectorProgram);
 setupProgram(gl.vectorProgram);
 
 function setupProgram(program) {
-    var robinsonStuff;
-    
     gl.useProgram(program);
     if (program === gl.rasterProgram) {
         // texture
         gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
-        // robinsonParallels
-        robinsonStuff = {};
-        robinsonStuff.plen = [1.0000, 0.9986, 0.9954, 0.9900, 0.9822, 0.9730, 0.9600, 0.9427, 0.9216, 0.8962, 0.8679, 0.8350, 0.7986, 0.7597, 0.7186, 0.6732, 0.6213, 0.5722, 0.5322];
-        robinsonStuff.pdfe = [0.0000, 0.0620, 0.1240, 0.1860, 0.2480, 0.3100, 0.3720, 0.4340, 0.4958, 0.5571, 0.6176, 0.6769, 0.7346, 0.7903, 0.8435, 0.8936, 0.9394, 0.9761, 1.0000];
-        robinsonStuff.numSamples = robinsonStuff.plen.length;
-        robinsonStuff.textureData = new Float32Array(2 * robinsonStuff.numSamples);
-        robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) {
-                                   robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i);
-                                   });
-        gl.uniform2fv(gl.getUniformLocation(program, 'robinsonParallels'), robinsonStuff.textureData);
     } else if (program === gl.vectorProgram) {
         // color
         gl.uniform4f(gl.getUniformLocation(program, "color"), 1.0, 1.0, 0.0, 0.1);
     }
+    // robinsonParallels
+    var robinsonStuff = {};
+    robinsonStuff.plen = [1.0000, 0.9986, 0.9954, 0.9900, 0.9822, 0.9730, 0.9600, 0.9427, 0.9216, 0.8962, 0.8679, 0.8350, 0.7986, 0.7597, 0.7186, 0.6732, 0.6213, 0.5722, 0.5322];
+    robinsonStuff.pdfe = [0.0000, 0.0620, 0.1240, 0.1860, 0.2480, 0.3100, 0.3720, 0.4340, 0.4958, 0.5571, 0.6176, 0.6769, 0.7346, 0.7903, 0.8435, 0.8936, 0.9394, 0.9761, 1.0000];
+    robinsonStuff.numSamples = robinsonStuff.plen.length;
+    robinsonStuff.textureData = new Float32Array(2 * robinsonStuff.numSamples);
+    robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) { robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i); });
+    gl.uniform2fv(gl.getUniformLocation(program, 'robinsonParallels'), robinsonStuff.textureData);
 }
 
 function switchToProgram(program, scale, blend) {
@@ -318,8 +335,9 @@ function switchToProgram(program, scale, blend) {
     viewTransform.scale(scale);
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
     
-    // blend
+    // blend / meridian
     gl.uniform1f(gl.getUniformLocation(program, 'blend'), blend);
+    gl.uniform1f(gl.getUniformLocation(program, 'meridian'), blend * 6.28);
 }
 
 
@@ -393,9 +411,8 @@ $.get(host + '_all_docs', function (result) {
                     return;
                 }
                 
-                
                 vertices = [];
-                lineWidth = 0.5;
+                lineWidth = 0.005;
                 function append(p) {
                     vertices.push(p[0], p[1], -lineWidth);
                     vertices.push(p[0], p[1], +lineWidth);
@@ -421,7 +438,6 @@ $.get(host + '_all_docs', function (result) {
 var gState;
 function draw(scale, blend) {
     var vPositionIdx, vPositionPrevIdx, vPositionNextIdx;
-    scale = 0.75 / 180;
     
     gl.clearColor(0,0,0,0);
     gl.clearDepth(1);
@@ -444,6 +460,7 @@ function draw(scale, blend) {
     vPositionPrevIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionPrev');
     vPositionNextIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionNext');
     
+    //gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
