@@ -320,7 +320,7 @@ function setupProgram(program) {
     gl.uniform2fv(gl.getUniformLocation(program, 'robinsonParallels'), robinsonStuff.textureData);
 }
 
-function switchToProgram(program, scale, blend) {
+function switchToProgram(program, scale, blend, rotation) {
     gl.useProgram(program);
     if (program === gl.rasterProgram) {
         gl.disableVertexAttribArray(gl.getAttribLocation(gl.vectorProgram, 'vPosition'));
@@ -344,7 +344,7 @@ function switchToProgram(program, scale, blend) {
     
     // blend / meridian
     gl.uniform1f(gl.getUniformLocation(program, 'blend'), blend);
-    gl.uniform1f(gl.getUniformLocation(program, 'meridian'), blend * 6.28 - 3.14);
+    gl.uniform1f(gl.getUniformLocation(program, 'meridian'), rotation * 6.28 - 3.14);
 }
 
 
@@ -379,7 +379,7 @@ texture.image.onload = function () {
     }
     
     if (!animating) {
-        draw(0.75, 0);
+        draw(0.75, 0, 0.5);
     }
 };
 texture.image.src = "HYP_50M_SR_W.jpg";
@@ -436,14 +436,14 @@ $.get(host + '_all_docs', function (result) {
             });
             
             if (!animating) {
-                draw(0.75, 0);
+                draw(0.75, 0, 0.5);
             }
         }, 'json');
     });
 }, 'json');
 
 var gState;
-function draw(scale, blend) {
+function draw(scale, blend, rotation) {
     var vPositionIdx, vPositionPrevIdx, vPositionNextIdx;
     
     gl.clearColor(0,0,0,0);
@@ -453,7 +453,7 @@ function draw(scale, blend) {
     gl.enable(gl.CULL_FACE);
     gl.frontFace(gl.CW);
     
-    switchToProgram(gl.rasterProgram, scale, blend);
+    switchToProgram(gl.rasterProgram, scale, blend, rotation);
     vPositionIdx = gl.getAttribLocation(gl.rasterProgram, 'vPosition');
     
     texture.strips.forEach(function (strip) {
@@ -462,7 +462,7 @@ function draw(scale, blend) {
        gl.drawArrays(gl.TRIANGLE_STRIP, 0, strip.vertexCount);
     });
     
-    switchToProgram(gl.vectorProgram, scale, blend);
+    switchToProgram(gl.vectorProgram, scale, blend, rotation);
     vPositionIdx = gl.getAttribLocation(gl.vectorProgram, 'vPosition');
     vPositionPrevIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionPrev');
     vPositionNextIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionNext');
@@ -489,15 +489,16 @@ $('#toggle_animation').click(function () {
     state = PI / 2;
     animating = true;
     timer = setInterval(function () {
-        var blend, scale;
+        var rotation, blend, scale;
         
+        rotation = -state % -1.0;
         blend = 0.5 - Math.sin(state) / 2;
         scale = 0.65 - 0.4 * blend;
-        draw(scale, blend);
+        draw(scale, blend, rotation);
         gl.flush();
         fps.snapshot();
 
-        state += 0.01;
+        state += 0.001;
     }, 1);
     $('#toggle_animation').hide();
 });
