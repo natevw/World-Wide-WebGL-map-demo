@@ -206,6 +206,8 @@ void main(void) {
         gl_Position.xy = seg1b;
     } else if (nextOffset) {
         gl_Position.xy = seg2a;
+    } else {
+        gl_Position.xy = position.xy;
     }
     gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
