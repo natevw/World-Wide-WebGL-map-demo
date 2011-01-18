@@ -102,7 +102,46 @@ This enables the expensive trigonometric projection formulas to be offloaded to 
 
 <h3>Raster texturing</h3>
 
-<img alt="Diagram showing upright triangle's orientation being changed by vertex reprojection" width=256 height=256 src="triangle_culling.png">
+<p>
+The base texture layer is drawn using fairly standard texturing techinques, modulo the cartographic projection described above. I essentially cover a [-180, +180] × [-90, +90] rectangle with the common triangle strip method, but more fine grained than would be necessary for normal rectangle texturing.
+The vertex shader is thus able to cartographically project enough control points that when the GPU applies its linear interpolation during rasterization, the result is still a visually accurate approximation of the intended projection.
+the fragment shader simply gets the original (unprojected) coordinates as the texture coordinate, which is easily converted to sampler coordinates on a <a href="http://en.wikipedia.org/wiki/Equirectangular_projection">plate carrée</a>-projected world texture.
+
+<p>
+To deal with <a href="">reprojection issues when the projection's center of longitude is modified</a> (λ₀ ≠ 0º), I've taken advantage of a reprojection effect that let's me simply use OpenGL's triangle culling.
+The texture strips are made up of grid-aligned right triangles; when projected "normally" they retain a clockwise orientation. However, if any one of a triangle's three vertices is on the opposite side of the map as the others, the orientation becomes counter-clockwise:<br>
+<img alt="Diagram showing upright triangle's orientation being changed by vertex reprojection" width=256 height=256 src="triangle_culling.png"><br>
+These can be trivially culled with a simple OpenGL state setting, so that texture triangles that would otherwise cut across the map are simply dropped before rasterization.
+
+
+<h3>Line drawing</h3>
+
+<p>
+I was hoping to use the <a href="http://homepage.mac.com/arekkusu/bugs/invariance/TexAA.html">texture antialiasing</a> style of line drawing in conjunction with this same triangle culling technique to reproject the vector linework as well.
+So I built a vertex shader that would offset a (x,y) point based on a third "z" value that represented the line width at that vertex. When loading points into the vertex buffer, I duplicated each (x,y) to add an alternating ±z state per-vertex:<br>
+<img alt="Diagram showing the configuration of a triangle strip offset from a line's original vertices" width=470 height=256 src="triangle_line_method.png">
+
+<p>
+To offset in the correct direction, I actually had to give the shader access to the previous and next point triplets as well, which could be done without much overhead when binding the vertex buffer to each attribute variable.
+The basic goal was to mimic the aforelinked texture antialiasing, but have all the vector math done on the GPU post-projection instead of in JavaScript.
+It worked well in my <a href="textureAA.html">basic prototype</a>, and had some nice benefits: I will be able to add nice anti-aliasing in the fragment shader; I can also vary the line width at each vertex, which could come in handy for drawing rivers and whatnot at medium scales.
+
+<p>
+Unfortunately, it turns out not all triangle configurations reverse their orientation when one of their coordinates is projected across the antimeridian:<br>
+<img alt="Diagram showing askew triangle's orientation remaining unchanged after vertex reprojection" width=256 height=256 src="triangle_nonculling.png"><br>
+While the culling technique reduced the amount of lines banding across the map, the technique seems neither theoretically nor practically sound for the general triangle case.
+
+<p>
+Back at the drawing board, I considered my options and settled on a solution that takes advantage of the fact that I'm already (somewhat hackily) giving the vertex shader access to the two extra previous and next vertices.
+I simply project three vertices each time (which, given that even GLSL's trig functions have vectorized entry points, may not even be much of a performance loss) and simultaneously check if they cross a discontinuity in the projection.
+This is sort of hacked into the current code and could use some eventual cleanup and optimization, but ended up working quite well.
+If any of the three available points is unprojectable, or if either the previous or next is across the map from the current, I simply treat the line width as zero at the current point.
+This essentially "pinches" the line off for at least three vertices, resulting in a few degnerate triangles that let the line sneak over to the opposite side of the map without artifacts.
+
+<h3>Area drawing</h3>
+
+Is not implemented, this state of affairs being the easiest to accomplish without additional effort.
+
 
 
 <script id="projection_vertex_helper" type="x-shader/x-include">
