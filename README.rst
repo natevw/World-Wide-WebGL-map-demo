@@ -11,4 +11,4 @@ You can `view this as a hosted demo`_ or `read our blog post about it`_.
 
 .. _&yet: http://andyet.net
 .. _view this as a hosted demo: http://andyet.couchone.com/world/_design/webgl/demo.html
-.. _read our blog post about it: http://andyet.net/blog/
+.. _read our blog post about it: http://cloudcartography.com/post/2087091647/making-maps-with-webgl
