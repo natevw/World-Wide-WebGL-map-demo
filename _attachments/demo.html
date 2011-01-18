@@ -1,7 +1,5 @@
-<!doctype html>
 <html>
 <head>
-<meta charset="utf-8">
 <title>&amp;yet demo - World Wide WebGL</title>
 
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DI.js"></script>
@@ -43,45 +41,34 @@ THE SOFTWARE.
 A demonstration of using WebGL to do web-based cartographic drawing on the GPU.
 </p>
 
-<h2>About</h2>
+<h2>How to view</h2>
 
 <p>
-This <a href="http://andyet.net/">&amp;yet</a> production was created by @natevw early in 2010 October to do <a href="http://cloudcartography.com/post/2087091647/making-maps-with-webgl">basic animated reprojection</a>,
-and updated in 2011 January to <a href="">allow rotation of the map to center on any meridian</a>.
-It reprojects both a raster texture and vector polygons, using GPU-accelerated programmable shaders via WebGL.
-The map contents are derived from the most excellent <a href="http://www.naturalearthdata.com/">Natural Earth</a> dataset.
-This demo and all its data is hosted via <a href="/_utils/database.html?world">CouchDB</a>,
-so you can replicate it to a local machine for quicker initial load times and offline support.
-The <a href="https://github.com/andyet/World-Wide-WebGL-map-demo">source is on GitHub</a> as well.
+Unless this is THE FUTURE, you will likely need to <a href="http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation">download and
+configure</a> a pre-release version of your favorite browser to view it. If the animation has really poor frame rate (~10fps or less)
+it's probably running on a software OpenGL fallback. Make sure you're using the latest nightly build of your browser with a graphics card
+that <a href="http://homepage.mac.com/arekkusu/bugs/GLInfo.html">supports</a> OpenGL version 2.0 or better.
 </p>
-
-<h2>How to view / Troubleshooting</h2>
 
 <p>
 Use the "Animate" button to flex the superpowers of WebGL.
 <p>
 
-<dl>
-<dt>
-Does your browser not support WebGL?
-<dd>
-Unless this is THE FUTURE, you will likely need to <a href="http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation">download and
-configure</a> a pre-release version of your favorite browser to view it.
+<h2>About</h2>
 
-<dt>
-Is the animation really slow?
-<dd>
-If the animation has really poor frame rate (~10fps or less) it's probably running on a software OpenGL fallback.
-Make sure you're using the latest nightly build of your browser with a graphics card that <a href="http://homepage.mac.com/arekkusu/bugs/GLInfo.html">supports</a> OpenGL version 2.0 or better.
+<p>
+This <a href="http://andyet.net/">&amp;yet</a> production was created by @natevw early in 2010 October.
+It reprojects both a raster texture and vector polygons, using GPU-accelerated programmable shaders via WebGL.
+The map contents are derived from the most excellent <a href="http://www.naturalearthdata.com/">Natural Earth</a> dataset.
+This demo and all its data is hosted via <a href="/_utils/database.html?world">CouchDB</a>,
+so you can replicate this demo to a local machine for quicker initial load times.
+The <a href="https://github.com/andyet/World-Wide-WebGL-map-demo">source is on GitHub</a> as well.
+</p>
 
-<dt>
-Are the national borders crazy town?
-<dd>
-There is a <a href="http://andyet.couchone.com/_utils/document.html?share/WWWebGL%20issue%20on%20GeForce%207300%20GT">known issue</a> with at least one graphics card (GeForce 7300 GT) that I have yet to fully diagnose.
-If you are seeing a bunch of lines that fly in to the center of the map, DO NOT I repeat DO NOT stare at the point where the lines meet.
-I think this might be a GPU or driver bug, and if the drawing artifacts suck you in you run the risk of ending up in a century where the video card manufacturer has been bought by a different company and no longer offers fleet support for trans-wormhole rescue missions.
+<p>
+More info: <a href="http://cloudcartography.com/post/2087091647/making-maps-with-webgl">behind-the-scenes blog post</a>.
+</p>
 
-</dl>
 
 <h2>The demo, already...</h2>
 
@@ -89,23 +76,9 @@ I think this might be a GPU or driver bug, and if the drawing artifacts suck you
 <!--<input type="checkbox" id="unlimit">Let 'er rip!</button>-->
 <div id="frames"></div>
 
-<canvas id="viewport" width="2048" height="1536" style="width: 1024px; height: 768px;"></canvas>
+<canvas id="viewport" width="2048" height="1536" style="width: 1024; height: 768"></canvas>
 
-<h2>How it works</h2>
-
-<h3>Basics</h3>
-
-<p>
-Map data is loaded directly directly into a WebGL vertex buffer, in latitude and longitude coordinate form, with minimal processing applied in JavaScript.
-When drawing, an unconventional <a href="http://duriansoftware.com/joe/An-intro-to-modern-OpenGL.-Chapter-1:-The-Graphics-Pipeline.html#gl1-pipeline">vertex shader</a> is used to apply a <em>cartographic</em> projection before mutliplying by the traditional linear view transformation used in normal 2D and 3D visualization.
-This enables the expensive trigonometric projection formulas to be offloaded to the GPU, where the calculations benefit from raw speed as well as generously parallelized processing. Both the raster and vector data is currently drawn using triangle strips, which offer a good tradeoff between flexibility and number of vertexes.
-
-<h3>Raster texturing</h3>
-
-<img alt="Diagram showing upright triangle's orientation being changed by vertex reprojection" width=256 height=256 src="triangle_culling.png">
-
-
-<script id="projection_vertex_helper" type="x-shader/x-include">
+<script id="robinson_vertex_shader" type="x-shader/x-vertex">
 
 #define M_PI 3.14159265358979323846
 #define M_1_PI 0.31830988618379067154
@@ -114,125 +87,28 @@ This enables the expensive trigonometric projection formulas to be offloaded to 
 #define RBSN_SCALE 0.5072
 uniform vec2 robinsonParallels[19];
 
-uniform float blend;
-uniform float meridian;
-
-// return lam in range [-M_PI, M_PI)
-vec3 normalizeLam(vec3 lam) {
-    return 2.0 * M_PI * (fract(0.5 * M_1_PI * lam + 0.5) - 0.5);
-}
-
-bvec3 project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
-    vec3 phi = radians(lat);
-    vec3 lam = radians(lon);
-    lam = normalizeLam(lam - meridian);
-    
-    vec3 pos = abs(phi * M_2_PI) * 18.0;
-    ivec3 idx1 = ivec3(floor(pos));
-    ivec3 idx2 = ivec3(ceil(pos));
-    vec2 robinsonRow0 = mix(robinsonParallels[idx1.x], robinsonParallels[idx2.x], fract(pos.x));
-    vec2 robinsonRow1 = mix(robinsonParallels[idx1.y], robinsonParallels[idx2.y], fract(pos.y));
-    vec2 robinsonRow2 = mix(robinsonParallels[idx1.z], robinsonParallels[idx2.z], fract(pos.z));
-    vec3 robinsonPLEN = vec3(robinsonRow0.x, robinsonRow1.x, robinsonRow2.x);
-    vec3 robinsonPDFE = vec3(robinsonRow0.y, robinsonRow1.y, robinsonRow2.y);
-    
-    vec3 robinsonX = robinsonPLEN * lam * M_1_PI;
-    vec3 robinsonY = sign(phi) * robinsonPDFE * RBSN_SCALE;
-    vec3 mercatorX = lam;
-    vec3 mercatorY = log(tan(M_PI/4.0 + phi/2.0));
-    x = mix(robinsonX, mercatorX, blend);
-    y = mix(robinsonY, clamp(mercatorY, -2.5, 2.5), blend);
-    
-    // TODO: this just works for the demo, it may not be generally correct
-    bvec3 leftish = lessThan(lam, vec3(-M_PI/2.0));
-    bvec3 rightish = greaterThan(lam, vec3(M_PI/2.0));
-    bool crosses01 = (leftish[0] && rightish[1]) || (rightish[0] && leftish[1]);
-    bool crosses12 = (leftish[1] && rightish[2]) || (rightish[1] && leftish[2]);
-    return bvec3(crosses01, false, crosses12);
-}
-
-</script>
-
-
-<script id="point_vertex_shader" type="x-shader/x-vertex">
-
 uniform mat4 modelViewProjMatrix;
+uniform float blend;
+
 attribute vec2 vPosition;
 varying vec2 textureCoord;
 
 void main(void) {
+    vec2 coord = radians(vPosition);
     textureCoord = vPosition / vec2(360.0, -180.0) + 0.5;
+	
+	float pos = abs(coord.y * M_2_PI) * 18.0;
+	int idx1 = int(floor(pos));
+	int idx2 = int(ceil(pos));
+	vec2 robinsonRow = mix(robinsonParallels[idx1], robinsonParallels[idx2], fract(pos));
     
-    vec3 x, y;
-    project(vec3(vPosition.y), vec3(vPosition.x), x, y);
-    gl_Position.x = x.x;
-    gl_Position.y = y.y;
+    vec2 robinsonResult = vec2(robinsonRow.x * coord.x * M_1_PI,
+                               sign(coord.y) * robinsonRow.y * RBSN_SCALE);
+    vec2 mercatorResult = vec2(coord.x, log(tan(M_PI/4.0 + coord.y/2.0)));
+    mercatorResult.y = clamp(mercatorResult.y, -2.5, 2.5);
+    
+    gl_Position.xy = mix(robinsonResult, mercatorResult, blend);
 	gl_Position.z = 0.0;
-	gl_Position.w = 1.0;
-    gl_Position = modelViewProjMatrix * gl_Position;
-}
-
-</script>
-
-
-<script id="line_vertex_shader" type="x-shader/x-vertex">
-
-uniform mat4 modelViewProjMatrix;
-attribute vec3 vPosition;
-attribute vec3 vPositionPrev;
-attribute vec3 vPositionNext;
-
-bool offsetSegment(vec3 A, vec3 B, out vec2 offsetA, out vec2 offsetB) {
-    vec2 segVector = B.xy - A.xy;
-    float segLen = length(segVector);
-    if (segLen > 0.0) {
-        // http://mathworld.wolfram.com/PerpendicularVector.html
-        vec2 segNormal = vec2(-segVector.y, segVector.x) / segLen;
-        offsetA = A.xy + segNormal * A.z / 2.0;
-        offsetB = B.xy + segNormal * B.z / 2.0;
-        return true;
-    }
-    return false;
-}
-
-vec2 intersectSegments(vec2 seg1a, vec2 seg1b, vec2 seg2a, vec2 seg2b) {
-    // http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline2d/
-    vec2 seg1 = seg1b - seg1a;
-    vec2 seg2 = seg2b - seg2a;
-    vec2 segD = seg1a - seg2a;
-    float numer = (seg2.x * segD.y) - (seg2.y * segD.x);
-    float denom = (seg2.y * seg1.x) - (seg2.x * seg1.y);
-    return seg1a + (numer / denom) * seg1;
-}
-
-void main(void) {
-    vec3 x, y;
-    vec3 lat = vec3(vPositionPrev.y, vPosition.y, vPositionNext.y);
-    vec3 lon = vec3(vPositionPrev.x, vPosition.x, vPositionNext.x);
-    bvec3 projErr = project(lat, lon, x, y);
-    vec3 positionPrev = vec3(x[0], y[0], vPositionPrev.z);
-    vec3 position = vec3(x[1], y[1], vPosition.z);
-    vec3 positionNext = vec3(x[2], y[2], vPositionNext.z);
-    
-    if (any(projErr)) {
-        position.z = 0.0;
-    }
-    
-    vec2 seg1a, seg1b, seg2a, seg2b;
-    bool prevOffset = offsetSegment(positionPrev, position, seg1a, seg1b);
-    bool nextOffset = offsetSegment(position, positionNext, seg2a, seg2b);
-    if (prevOffset && nextOffset) {
-        //gl_Position.xy = (seg1b + seg2a) / 2.0;
-        //gl_Position.xy = intersectSegments(seg1a, seg1b, seg2a, seg2b);
-        gl_Position.xy = seg2a;
-    } else if (prevOffset) {
-        gl_Position.xy = seg1b;
-    } else if (nextOffset) {
-        gl_Position.xy = seg2a;
-    } else {
-        gl_Position.xy = position.xy;
-    }
-    gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
 }
@@ -266,7 +142,7 @@ void main(void) {
 
 <script type="text/javascript">
 //var gl, canvas;
-var animating, viewTransform, texture, polygons, host;
+var animating, viewTransform, vPositionIdx, texture, polygons, host;
 
 canvas = document.getElementById('viewport');
 try {
@@ -294,74 +170,64 @@ if (!Float32Array.prototype.set) {
 	//Uint8Array.prototype.set = Float32Array.prototype.set;
 }
 
-gl.console = ("console" in window) ? window.console : { log: function() {} };
+gl.console = ("console" in window) ? window.console : { log: function() { } };
 gl.e = gl.console.logErrors = function () {
     gl.finish();
 	var err, NAMES = {1280:'INVALID_ENUM', 1281:'INVALID_VALUE', 1282:'INVALID_OPERATION', 1283:'STACK_OVERFLOW', 1284:'STACK_UNDERFLOW', 1285:'OUT_OF_MEMORY'};
 	while (err = gl.getError()) {
 		gl.console.log(NAMES[err]);
 	}
-    gl.console.log("done logging errors");
+    console.log("done logging errors");
 };
 
-var proj = document.getElementById('projection_vertex_helper');
-var point = document.getElementById('point_vertex_shader');
-var line = document.getElementById('line_vertex_shader');
-point.text = proj.text + point.text;
-line.text = proj.text + line.text;
-
 gl.shaders = {};
-gl.shaders.pointVertex = loadShader(gl, 'point_vertex_shader');
-gl.shaders.lineVertex = loadShader(gl, 'line_vertex_shader');
+gl.shaders.robinsonVertex = loadShader(gl, 'robinson_vertex_shader');
 gl.shaders.colorFragment = loadShader(gl, 'color_fragment_shader');
 gl.shaders.textureFragment = loadShader(gl, 'texture_fragment_shader');
 
 gl.rasterProgram = gl.createProgram();
-gl.attachShader(gl.rasterProgram, gl.shaders.pointVertex);
+gl.attachShader(gl.rasterProgram, gl.shaders.robinsonVertex);
 gl.attachShader(gl.rasterProgram, gl.shaders.textureFragment);
 gl.linkProgram(gl.rasterProgram);
 setupProgram(gl.rasterProgram);
 
 gl.vectorProgram = gl.createProgram();
-gl.attachShader(gl.vectorProgram, gl.shaders.lineVertex);
+gl.attachShader(gl.vectorProgram, gl.shaders.robinsonVertex);
 gl.attachShader(gl.vectorProgram, gl.shaders.colorFragment);
 gl.linkProgram(gl.vectorProgram);
 setupProgram(gl.vectorProgram);
 
 function setupProgram(program) {
+    var robinsonStuff;
+    
     gl.useProgram(program);
-    if (program === gl.rasterProgram) {
-        // texture
-        gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
-    } else if (program === gl.vectorProgram) {
-        // color
-        gl.uniform4f(gl.getUniformLocation(program, "color"), 1.0, 1.0, 0.0, 0.1);
-    }
+    
     // robinsonParallels
-    var robinsonStuff = {};
+    robinsonStuff = {};
     robinsonStuff.plen = [1.0000, 0.9986, 0.9954, 0.9900, 0.9822, 0.9730, 0.9600, 0.9427, 0.9216, 0.8962, 0.8679, 0.8350, 0.7986, 0.7597, 0.7186, 0.6732, 0.6213, 0.5722, 0.5322];
     robinsonStuff.pdfe = [0.0000, 0.0620, 0.1240, 0.1860, 0.2480, 0.3100, 0.3720, 0.4340, 0.4958, 0.5571, 0.6176, 0.6769, 0.7346, 0.7903, 0.8435, 0.8936, 0.9394, 0.9761, 1.0000];
     robinsonStuff.numSamples = robinsonStuff.plen.length;
     robinsonStuff.textureData = new Float32Array(2 * robinsonStuff.numSamples);
-    robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) { robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i); });
+    robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) {
+                               robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i);
+                               });
     gl.uniform2fv(gl.getUniformLocation(program, 'robinsonParallels'), robinsonStuff.textureData);
+    
+    if (program === gl.rasterProgram) {
+        // texture
+        gl.uniform1i(gl.getUniformLocation(gl.rasterProgram, "texture"), 0);
+    } else if (program === gl.vectorProgram) {
+        // color
+        gl.uniform4f(gl.getUniformLocation(gl.vectorProgram, "color"), 1.0, 1.0, 0.0, 0.1);
+    }
+    
+    // vPosition
+    vPositionIdx = gl.getAttribLocation(program, 'vPosition');
+    gl.enableVertexAttribArray(vPositionIdx);
 }
 
-function switchToProgram(program, scale, blend, rotation) {
+function switchToProgram(program, scale, blend) {
     gl.useProgram(program);
-    if (program === gl.rasterProgram) {
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.vectorProgram, 'vPosition'));
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.vectorProgram, 'vPositionPrev'));
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.vectorProgram, 'vPositionNext'));
-        
-        gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPosition'));
-    } else if (program === gl.vectorProgram) {
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.rasterProgram, 'vPosition'));
-        
-        gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPosition'));
-        gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPositionPrev'));
-        gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPositionNext'));
-    }
     
     // modelViewProjMatrix
     viewTransform = new J3DIMatrix4();
@@ -369,9 +235,8 @@ function switchToProgram(program, scale, blend, rotation) {
     viewTransform.scale(scale);
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
     
-    // blend / meridian
+    // blend
     gl.uniform1f(gl.getUniformLocation(program, 'blend'), blend);
-    gl.uniform1f(gl.getUniformLocation(program, 'meridian'), rotation * 6.28 - 3.14);
 }
 
 
@@ -390,8 +255,8 @@ texture.image.onload = function () {
     
     var vertices, b, x, xIdx, y, yIdx, vbo;
     b = {
-        startX: -180, stepX: 0.5, countX: 720,
-        startY: -90, stepY: 0.5, countY: 361
+        startX: -180, stepX: 5, countX: 72,
+        startY: -90, stepY: 5, countY: 37
     };
     for (x = b.startX, xIdx = 0; xIdx < b.countX; xIdx += 1, x += b.stepX) {
         vertices = new Float32Array(4 * b.countY);
@@ -406,7 +271,7 @@ texture.image.onload = function () {
     }
     
     if (!animating) {
-        draw(0.75, 0, 0.5);
+        draw(0.75, 0);
     }
 };
 texture.image.src = "HYP_50M_SR_W.jpg";
@@ -414,11 +279,8 @@ texture.image.src = "HYP_50M_SR_W.jpg";
 
 // setup vector overlay
 polygons = [];
-if (document.location.protocol === 'file:') {
-    host = 'http://localhost:5984/world/';
-} else {
-    host = '../../';
-}
+//host = 'http://localhost:5984/world/';
+host = '../../';
 $.get(host + '_all_docs', function (result) {
     var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
     countryList.forEach(function (docId) {
@@ -430,7 +292,7 @@ $.get(host + '_all_docs', function (result) {
                 shapes = [doc.geometry.coordinates];
             }
             shapes.forEach(function (polygon) {
-                var sourceArray, prevPair, vertices, lineWidth, vbo;
+                var sourceArray, prevPair, vertices, vbo;
                 
                 // unzip the sourceArray
                 sourceArray = polygon[0].filter(function (pair) {
@@ -445,43 +307,32 @@ $.get(host + '_all_docs', function (result) {
                     return;
                 }
                 
-                vertices = [];
-                lineWidth = 0.005;
-                function append(p) {
-                    vertices.push(p[0], p[1], -lineWidth);
-                    vertices.push(p[0], p[1], +lineWidth);
-                }
-                append(sourceArray[0]);
-                sourceArray.forEach(append);
-                append(sourceArray[sourceArray.length - 1]);
+                vertices = new Float32Array(sourceArray.length * 2);
+                sourceArray.forEach(function (pair, i) {
+                    vertices.set(pair, 2*i);
+                });
                 
                 // copy to buffer
                 vbo = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-                polygons.push({buffer: vbo, vertexCount: 2 * sourceArray.length});
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+                polygons.push({buffer: vbo, vertexCount: vertices.length / 2});
             });
             
             if (!animating) {
-                draw(0.75, 0, 0.5);
+                draw(0.75, 0);
             }
         }, 'json');
     });
 }, 'json');
 
-var gState;
-function draw(scale, blend, rotation) {
-    var vPositionIdx, vPositionPrevIdx, vPositionNextIdx;
-    
+
+function draw(scale, blend) {
     gl.clearColor(0,0,0,0);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
-    gl.enable(gl.CULL_FACE);
-    gl.frontFace(gl.CW);
-    
-    switchToProgram(gl.rasterProgram, scale, blend, rotation);
-    vPositionIdx = gl.getAttribLocation(gl.rasterProgram, 'vPosition');
+    switchToProgram(gl.rasterProgram, scale, blend);
     
     texture.strips.forEach(function (strip) {
        gl.bindBuffer(gl.ARRAY_BUFFER, strip.buffer);
@@ -489,21 +340,17 @@ function draw(scale, blend, rotation) {
        gl.drawArrays(gl.TRIANGLE_STRIP, 0, strip.vertexCount);
     });
     
-    switchToProgram(gl.vectorProgram, scale, blend, rotation);
-    vPositionIdx = gl.getAttribLocation(gl.vectorProgram, 'vPosition');
-    vPositionPrevIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionPrev');
-    vPositionNextIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionNext');
     
-    gl.disable(gl.CULL_FACE);
+    switchToProgram(gl.vectorProgram, scale, blend);
+    
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.lineWidth(2);
     
     polygons.forEach(function (polygon) {
         gl.bindBuffer(gl.ARRAY_BUFFER, polygon.buffer);
-        gl.vertexAttribPointer(vPositionPrevIdx, 3, gl.FLOAT, false, 0, 0*2*3*4);   // 2 sets of 3 4-byte floats
-        gl.vertexAttribPointer(vPositionIdx,     3, gl.FLOAT, false, 0, 1*2*3*4);
-        gl.vertexAttribPointer(vPositionNextIdx, 3, gl.FLOAT, false, 0, 2*2*3*4);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, polygon.vertexCount);
+        gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.LINE_LOOP, 0, polygon.vertexCount);
     });
 }
 
@@ -516,16 +363,15 @@ $('#toggle_animation').click(function () {
     state = PI / 2;
     animating = true;
     timer = setInterval(function () {
-        var rotation, blend, scale;
+        var blend, scale;
         
-        rotation = -state % -1.0;
         blend = 0.5 - Math.sin(state) / 2;
         scale = 0.65 - 0.4 * blend;
-        draw(scale, blend, rotation);
+        draw(scale, blend);
         gl.flush();
         fps.snapshot();
 
-        state += 0.001;
+        state += 0.01;
     }, 1);
     $('#toggle_animation').hide();
 });
@@ -534,7 +380,7 @@ $('#toggle_animation').click(function () {
 
 
 <hr />
-Copyright &copy; 2010&ndash;2011 &amp;yet, LLC. Released under the terms of the MIT license.
+Copyright &copy; 2010 &amp;yet, LLC. Released under the terms of the MIT license.
 
 </body>
 </html>
