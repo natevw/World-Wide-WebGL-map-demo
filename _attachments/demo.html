@@ -43,34 +43,45 @@ THE SOFTWARE.
 A demonstration of using WebGL to do web-based cartographic drawing on the GPU.
 </p>
 
-<h2>How to view</h2>
+<h2>About</h2>
 
 <p>
-Unless this is THE FUTURE, you will likely need to <a href="http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation">download and
-configure</a> a pre-release version of your favorite browser to view it. If the animation has really poor frame rate (~10fps or less)
-it's probably running on a software OpenGL fallback. Make sure you're using the latest nightly build of your browser with a graphics card
-that <a href="http://homepage.mac.com/arekkusu/bugs/GLInfo.html">supports</a> OpenGL version 2.0 or better.
+This <a href="http://andyet.net/">&amp;yet</a> production was created by @natevw early in 2010 October to do <a href="http://cloudcartography.com/post/2087091647/making-maps-with-webgl">basic animated reprojection</a>,
+and updated in 2011 January to <a href="">allow rotation of the map to center on any meridian</a>.
+It reprojects both a raster texture and vector polygons, using GPU-accelerated programmable shaders via WebGL.
+The map contents are derived from the most excellent <a href="http://www.naturalearthdata.com/">Natural Earth</a> dataset.
+This demo and all its data is hosted via <a href="/_utils/database.html?world">CouchDB</a>,
+so you can replicate it to a local machine for quicker initial load times and offline support.
+The <a href="https://github.com/andyet/World-Wide-WebGL-map-demo">source is on GitHub</a> as well.
 </p>
+
+<h2>How to view / Troubleshooting</h2>
 
 <p>
 Use the "Animate" button to flex the superpowers of WebGL.
 <p>
 
-<h2>About</h2>
+<dl>
+<dt>
+Does your browser not support WebGL?
+<dd>
+Unless this is THE FUTURE, you will likely need to <a href="http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation">download and
+configure</a> a pre-release version of your favorite browser to view it.
 
-<p>
-This <a href="http://andyet.net/">&amp;yet</a> production was created by @natevw early in 2010 October.
-It reprojects both a raster texture and vector polygons, using GPU-accelerated programmable shaders via WebGL.
-The map contents are derived from the most excellent <a href="http://www.naturalearthdata.com/">Natural Earth</a> dataset.
-This demo and all its data is hosted via <a href="/_utils/database.html?world">CouchDB</a>,
-so you can replicate this demo to a local machine for quicker initial load times.
-The <a href="https://github.com/andyet/World-Wide-WebGL-map-demo">source is on GitHub</a> as well.
-</p>
+<dt>
+Is the animation really slow?
+<dd>
+If the animation has really poor frame rate (~10fps or less) it's probably running on a software OpenGL fallback.
+Make sure you're using the latest nightly build of your browser with a graphics card that <a href="http://homepage.mac.com/arekkusu/bugs/GLInfo.html">supports</a> OpenGL version 2.0 or better.
 
-<p>
-More info: <a href="http://cloudcartography.com/post/2087091647/making-maps-with-webgl">behind-the-scenes blog post</a>.
-</p>
+<dt>
+Are the national borders crazy town?
+<dd>
+There is a <a href="http://andyet.couchone.com/_utils/document.html?share/WWWebGL%20issue%20on%20GeForce%207300%20GT">known issue</a> with at least one graphics card (GeForce 7300 GT) that I have yet to fully diagnose.
+If you are seeing a bunch of lines that fly in to the center of the map, DO NOT I repeat DO NOT stare at the point where the lines meet.
+I think this might be a GPU or driver bug, and if the drawing artifacts suck you in you run the risk of ending up in a century where the video card manufacturer has been bought by a different company and no longer offers fleet support for trans-wormhole rescue missions.
 
+</dl>
 
 <h2>The demo, already...</h2>
 
@@ -80,6 +91,18 @@ More info: <a href="http://cloudcartography.com/post/2087091647/making-maps-with
 
 <canvas id="viewport" width="2048" height="1536" style="width: 1024px; height: 768px;"></canvas>
 
+<h2>How it works</h2>
+
+<h3>Basics</h3>
+
+<p>
+Map data is loaded directly directly into a WebGL vertex buffer, in latitude and longitude coordinate form, with minimal processing applied in JavaScript.
+When drawing, an unconventional <a href="http://duriansoftware.com/joe/An-intro-to-modern-OpenGL.-Chapter-1:-The-Graphics-Pipeline.html#gl1-pipeline">vertex shader</a> is used to apply a <em>cartographic</em> projection before mutliplying by the traditional linear view transformation used in normal 2D and 3D visualization.
+This enables the expensive trigonometric projection formulas to be offloaded to the GPU, where the calculations benefit from raw speed as well as generously parallelized processing. Both the raster and vector data is currently drawn using triangle strips, which offer a good tradeoff between flexibility and number of vertexes.
+
+<h3>Raster texturing</h3>
+
+<img alt="Diagram showing upright triangle's orientation being changed by vertex reprojection" width=256 height=256 src="triangle_culling.png">
 
 
 <script id="projection_vertex_helper" type="x-shader/x-include">
