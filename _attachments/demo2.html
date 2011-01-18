@@ -47,7 +47,7 @@ A demonstration of using WebGL to do web-based cartographic drawing on the GPU.
 
 <p>
 This <a href="http://andyet.net/">&amp;yet</a> production was created by @natevw early in 2010 October to do <a href="http://cloudcartography.com/post/2087091647/making-maps-with-webgl">basic animated reprojection</a>,
-and updated in 2011 January to <a href="">allow rotation of the map to center on any meridian</a>.
+and updated in 2011 January to <a href="http://cloudcartography.com/post/2814029307/making-the-world-go-round">allow rotation of the map to center on any meridian</a>.
 It reprojects both a raster texture and vector polygons, using GPU-accelerated programmable shaders via WebGL.
 The map contents are derived from the most excellent <a href="http://www.naturalearthdata.com/">Natural Earth</a> dataset.
 This demo and all its data is hosted via <a href="/_utils/database.html?world">CouchDB</a>,
@@ -108,7 +108,7 @@ The vertex shader is thus able to cartographically project enough control points
 the fragment shader simply gets the original (unprojected) coordinates as the texture coordinate, which is easily converted to sampler coordinates on a <a href="http://en.wikipedia.org/wiki/Equirectangular_projection">plate carrée</a>-projected world texture.
 
 <p>
-To deal with <a href="">reprojection issues when the projection's center of longitude is modified</a> (λ₀ ≠ 0º), I've taken advantage of a reprojection effect that let's me simply use OpenGL's triangle culling.
+To deal with <a href="http://cloudcartography.com/post/2814029307/making-the-world-go-round">reprojection issues when the projection's center of longitude is modified</a> (λ₀ ≠ 0º), I've taken advantage of a reprojection effect that let's me simply use OpenGL's triangle culling.
 The texture strips are made up of grid-aligned right triangles; when projected "normally" they retain a clockwise orientation. However, if any one of a triangle's three vertices is on the opposite side of the map as the others, the orientation becomes counter-clockwise:<br>
 <img alt="Diagram showing upright triangle's orientation being changed by vertex reprojection" width=256 height=256 src="triangle_culling.png"><br>
 These can be trivially culled with a simple OpenGL state setting, so that texture triangles that would otherwise cut across the map are simply dropped before rasterization.
