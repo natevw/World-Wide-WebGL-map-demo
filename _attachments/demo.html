@@ -237,12 +237,13 @@ texture.cubeSources = [
     {name:'pos_z', target:gl.TEXTURE_CUBE_MAP_POSITIVE_Z},
     {name:'neg_z', target:gl.TEXTURE_CUBE_MAP_NEGATIVE_Z},
 ];
+texture.loadCount = 0;
 texture.cubeSources.forEach(function (source) {
     var image = new Image();
     image.onload = function () {
         gl.texImage2D(source.target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        
-        if (!animating) {
+        texture.loadCount += 1;
+        if (!animating && texture.loadCount === 6) {
             draw(0.75, 0);
         }
     };
