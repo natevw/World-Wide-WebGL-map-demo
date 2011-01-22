@@ -34,19 +34,19 @@ THE SOFTWARE.
 -->
 
 </head>
-<body style="background: black; color: white;">
+<body style="width: 1024px; background: black; color: white; font-family: sans-serif;">
 
 <h1>Mapping panoramics</h1>
 
 <p>
-Inspired by and using an image from Seb Przd's <a href="http://www.flickr.com/photos/sbprzd/sets/72057594138628700/">"A world of projections"</a>.
+Inspired by — and using an image from — Seb Przd's <a href="http://www.flickr.com/photos/sbprzd/sets/72057594138628700/">"A world of projections"</a>.
 Based on WebGL mapping prototypes described on my <a href="http://cloudcartography.com/">Cloud Cartography</a> blog,
 blends between the Robinson and Mercator projections while spinning the room.
 </p>
 
 <button type="button" id="animate">Animate</button><br>
 
-<canvas id="viewport" width="2048" height="1536" style="width: 1024px; height: 768px;"></canvas>
+<canvas id="viewport" width="1024" height="768" style="width: 1024px; height: 768px;"></canvas>
 <div id="fail" style='border: 2px dashed red; width: 512px; padding: 2em; font-style: italic; display:none'>
 Sorry, your browser doesn't appear to support WebGL.
 Please view this page using a development build of Chromium (<a href="http://build.chromium.org/f/chromium/continuous/mac/LATEST/">Mac OS X</a>, <a href="http://build.chromium.org/f/chromium/continuous/win/LATEST/">Windows</a>, <a href="http://build.chromium.org/f/chromium/continuous/linux64/LATEST/">64-bit Linux</a> or <a href="http://build.chromium.org/f/chromium/continuous/linux/LATEST/">32-bit Linux</a>)
@@ -288,7 +288,7 @@ $('#animate').click(function () {
         draw(scale, blend, rotation);
         gl.flush();
 
-        state += 0.0025;
+        state += 0.001;
     }, 1);
     $('#animate').hide();
 });
