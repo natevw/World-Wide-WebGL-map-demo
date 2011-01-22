@@ -98,10 +98,10 @@ varying highp vec2 textureCoord;
 
 void main(void) {
     highp vec3 ecef;
-    ecef.x = cos(textureCoord.x) * cos(textureCoord.y);
-    ecef.y = cos(textureCoord.x) * sin(textureCoord.y);
-    ecef.z = sin(textureCoord.x);
-    gl_FragColor = textureCube(texture, ecef);
+    ecef.x = cos(textureCoord.y) * cos(textureCoord.x);
+    ecef.y = cos(textureCoord.y) * sin(textureCoord.x);
+    ecef.z = sin(textureCoord.y);
+    gl_FragColor = textureCube(texture, ecef.yzx);
 }
 
 </script>
