@@ -40,7 +40,8 @@ THE SOFTWARE.
 
 <p>
 Inspired by and using an image from Seb Przd's <a href="http://www.flickr.com/photos/sbprzd/sets/72057594138628700/">"A world of projections"</a>.
-Based on WebGL mapping prototypes described on my <a href="http://cloudcartography.com/">Cloud Cartography</a> blog.
+Based on WebGL mapping prototypes described on my <a href="http://cloudcartography.com/">Cloud Cartography</a> blog,
+blends between the Robinson and Mercator projections while spinning the room.
 </p>
 
 <button type="button" id="animate">Animate</button><br>
@@ -64,13 +65,19 @@ uniform vec2 robinsonParallels[19];
 
 uniform mat4 modelViewProjMatrix;
 uniform float blend;
+uniform float meridian;
 
 attribute vec2 vPosition;
 varying vec2 textureCoord;
 
+float normalizeLam(float lam) {
+    return 2.0 * M_PI * (fract(0.5 * M_1_PI * lam + 0.5) - 0.5);
+}
+
 void main(void) {
     vec2 coord = radians(vPosition);
     textureCoord = coord;
+    coord.x = normalizeLam(coord.x - meridian);
 	
 	float pos = abs(coord.y * M_2_PI) * 18.0;
 	int idx1 = int(floor(pos));
@@ -188,7 +195,7 @@ function setupProgram(program) {
     gl.enableVertexAttribArray(vPositionIdx);
 }
 
-function switchToProgram(program, scale, blend) {
+function switchToProgram(program, scale, blend, rotation) {
     gl.useProgram(program);
     
     // modelViewProjMatrix
@@ -197,8 +204,9 @@ function switchToProgram(program, scale, blend) {
     viewTransform.scale(scale);
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'modelViewProjMatrix'), false, viewTransform.getAsFloat32Array());
     
-    // blend
+    // blend / meridian
     gl.uniform1f(gl.getUniformLocation(program, 'blend'), blend);
+    gl.uniform1f(gl.getUniformLocation(program, 'meridian'), rotation * 6.28 - 3.14);
 }
 
 
@@ -207,8 +215,8 @@ texture = gl.createTexture();
 texture.strips = (function () {
     var strips = [], vertices, b, x, xIdx, y, yIdx, vbo;
     b = {
-        startX: -180, stepX: 5, countX: 72,
-        startY: -90, stepY: 5, countY: 37
+        startX: -180, stepX: 0.5, countX: 720,
+        startY: -90, stepY: 0.5, countY: 361
     };
     for (x = b.startX, xIdx = 0; xIdx < b.countX; xIdx += 1, x += b.stepX) {
         vertices = new Float32Array(4 * b.countY);
@@ -244,18 +252,20 @@ texture.cubeSources.forEach(function (source) {
         gl.texImage2D(source.target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         texture.loadCount += 1;
         if (!animating && texture.loadCount === 6) {
-            draw(0.75, 0);
+            draw(0.75, 0, 0.5);
         }
     };
     image.src = "panos/pano_" + source.name + ".jpg";
 });
 
 
-function draw(scale, blend) {
+function draw(scale, blend, rotation) {
     gl.clearColor(0,0,0,0);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    switchToProgram(gl.rasterProgram, scale, blend);
+    switchToProgram(gl.rasterProgram, scale, blend, rotation);
+    gl.enable(gl.CULL_FACE);
+    gl.frontFace(gl.CW);
     texture.strips.forEach(function (strip) {
        gl.bindBuffer(gl.ARRAY_BUFFER, strip.buffer);
        gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
@@ -270,14 +280,15 @@ $('#animate').click(function () {
     state = PI / 2;
     animating = true;
     timer = setInterval(function () {
-        var blend, scale;
+        var rotation, blend, scale;
         
+        rotation = -state % -1.0;
         blend = 0.5 - Math.sin(state) / 2;
         scale = 0.65 - 0.4 * blend;
-        draw(scale, blend);
+        draw(scale, blend, rotation);
         gl.flush();
 
-        state += 0.01;
+        state += 0.0025;
     }, 1);
     $('#animate').hide();
 });
