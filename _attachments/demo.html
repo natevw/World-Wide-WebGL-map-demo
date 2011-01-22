@@ -43,7 +43,7 @@ Inspired by and using an image from Seb Przd's <a href="http://www.flickr.com/ph
 Based on WebGL mapping prototypes described on my <a href="http://cloudcartography.com/">Cloud Cartography</a> blog.
 </p>
 
-<button type="button" id="animate">Animate</button>
+<button type="button" id="animate">Animate</button><br>
 
 <canvas id="viewport" width="2048" height="1536" style="width: 1024px; height: 768px;"></canvas>
 <div id="fail" style='border: 2px dashed red; width: 512px; padding: 2em; font-style: italic; display:none'>
@@ -224,7 +224,11 @@ texture.strips = (function () {
     return strips;
 })();
 
-
+gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 texture.cubeSources = [
     {name:'pos_x', target:gl.TEXTURE_CUBE_MAP_POSITIVE_X},
     {name:'neg_x', target:gl.TEXTURE_CUBE_MAP_NEGATIVE_X},
@@ -233,16 +237,10 @@ texture.cubeSources = [
     {name:'pos_z', target:gl.TEXTURE_CUBE_MAP_POSITIVE_Z},
     {name:'neg_z', target:gl.TEXTURE_CUBE_MAP_NEGATIVE_Z},
 ];
-
 texture.cubeSources.forEach(function (source) {
     var image = new Image();
     image.onload = function () {
-        gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-        gl.texImage2D(source.target, 0, gl.RGBA, gl.RGB, gl.UNSIGNED_BYTE, image);
-        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(source.target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         
         if (!animating) {
             draw(0.75, 0);
