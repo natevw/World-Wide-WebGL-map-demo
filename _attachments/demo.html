@@ -70,7 +70,7 @@ varying vec2 textureCoord;
 
 void main(void) {
     vec2 coord = radians(vPosition);
-    textureCoord = vPosition / vec2(360.0, -180.0) + 0.5;
+    textureCoord = coord;
 	
 	float pos = abs(coord.y * M_2_PI) * 18.0;
 	int idx1 = int(floor(pos));
@@ -91,13 +91,17 @@ void main(void) {
 </script>
 
 
-<script id="texture_fragment_shader" type="x-shader/x-fragment">
+<script id="cubemap_fragment_shader" type="x-shader/x-fragment">
 
-uniform sampler2D texture;
+uniform samplerCube texture;
 varying highp vec2 textureCoord;
 
 void main(void) {
-    gl_FragColor = texture2D(texture, textureCoord);
+    highp vec3 ecef;
+    ecef.x = cos(textureCoord.x) * cos(textureCoord.y);
+    ecef.y = cos(textureCoord.x) * sin(textureCoord.y);
+    ecef.z = sin(textureCoord.x);
+    gl_FragColor = textureCube(texture, ecef);
 }
 
 </script>
@@ -147,7 +151,7 @@ gl.e = gl.console.logErrors = function () {
 
 gl.shaders = {};
 gl.shaders.projectedVertex = loadShader(gl, 'projected_vertex_shader');
-gl.shaders.textureFragment = loadShader(gl, 'texture_fragment_shader');
+gl.shaders.textureFragment = loadShader(gl, 'cubemap_fragment_shader');
 
 gl.rasterProgram = gl.createProgram();
 gl.attachShader(gl.rasterProgram, gl.shaders.projectedVertex);
@@ -221,20 +225,31 @@ texture.strips = (function () {
 })();
 
 
-texture.image = new Image();
-texture.image.onload = function () {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    
-    if (!animating) {
-        draw(0.75, 0);
-    }
-};
-texture.image.src = "panos/pano_pos_z.jpg";
+texture.cubeSources = [
+    {name:'pos_x', target:gl.TEXTURE_CUBE_MAP_POSITIVE_X},
+    {name:'neg_x', target:gl.TEXTURE_CUBE_MAP_NEGATIVE_X},
+    {name:'pos_y', target:gl.TEXTURE_CUBE_MAP_POSITIVE_Y},
+    {name:'neg_y', target:gl.TEXTURE_CUBE_MAP_NEGATIVE_Y},
+    {name:'pos_z', target:gl.TEXTURE_CUBE_MAP_POSITIVE_Z},
+    {name:'neg_z', target:gl.TEXTURE_CUBE_MAP_NEGATIVE_Z},
+];
+
+texture.cubeSources.forEach(function (source) {
+    var image = new Image();
+    image.onload = function () {
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+        gl.texImage2D(source.target, 0, gl.RGBA, gl.RGB, gl.UNSIGNED_BYTE, image);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        
+        if (!animating) {
+            draw(0.75, 0);
+        }
+    };
+    image.src = "panos/pano_" + source.name + ".jpg";
+});
 
 
 function draw(scale, blend) {
@@ -250,9 +265,7 @@ function draw(scale, blend) {
 }
 
 $('#animate').click(function () {
-    var fps, PI, state, timer;
-    
-    fps = new Framerate('frames');
+    var PI, state, timer;
     
     PI = 3.1415926536;
     state = PI / 2;
@@ -264,7 +277,6 @@ $('#animate').click(function () {
         scale = 0.65 - 0.4 * blend;
         draw(scale, blend);
         gl.flush();
-        fps.snapshot();
 
         state += 0.01;
     }, 1);
