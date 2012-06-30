@@ -12,7 +12,6 @@
 
 Dev Derby TODO:
 
-0. Get rid of jQuery dep?
 1. Get rid of borders
 2. Replace image
 3. Replace projection
@@ -221,9 +220,10 @@ void main(void) {
 
 
 <script type="text/javascript">
-//var gl, canvas;
+//var gl, canvas, button;
 var animating, viewTransform, texture, polygons, host;
 
+button = document.getElementById('toggle_animation');
 canvas = document.getElementById('viewport');
 try {
     // FF4.0b6 throws an exception if WebGL context not available
@@ -233,8 +233,8 @@ try {
 }
 
 if (!gl) {
-    $(canvas).replaceWith("<span style='border: 2px dashed red; display: block; padding: 2em; font-style: italic'>Sorry, your browser doesn't appear to support WebGL. Please see the instructions above.</span>");
-    $('#toggle_animation').hide();
+    canvas.outerHTML = "<span style='border: 2px dashed red; display: block; padding: 2em; font-style: italic'>Sorry, your browser doesn't appear to support WebGL. Please see the instructions above.</span>";
+    button.style.display = 'none';
     throw Error("WebGL not available");
 }
 
@@ -463,7 +463,7 @@ function draw(scale, blend, rotation) {
     });
 }
 
-$('#toggle_animation').click(function () {
+document.getElementById('toggle_animation').addEventListener('click', function () {
     var fps, PI, state, timer;
     
     fps = new Framerate('frames');
@@ -483,8 +483,8 @@ $('#toggle_animation').click(function () {
 
         state += 0.001;
     }, 1);
-    $('#toggle_animation').hide();
-});
+    button.style.display = 'none';
+}, false);
 
 </script>
 
