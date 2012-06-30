@@ -6,13 +6,11 @@
 
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DI.js"></script>
 <script type="text/javascript" src="http://webkit.org/blog-files/webgl/resources/J3DIMath.js"></script>
-<script type="text/javascript" src="http://code.jquery.com/jquery-1.4.2.min.js"></script>
 
 <!--
 
 Dev Derby TODO:
 
-1. Get rid of borders
 2. Replace image
 3. Replace projection
 4. Add mouse navigation
@@ -130,82 +128,6 @@ void main(void) {
 </script>
 
 
-<script id="line_vertex_shader" type="x-shader/x-vertex">
-
-uniform mat4 modelViewProjMatrix;
-attribute vec3 vPosition;
-attribute vec3 vPositionPrev;
-attribute vec3 vPositionNext;
-
-bool offsetSegment(vec3 A, vec3 B, out vec2 offsetA, out vec2 offsetB) {
-    vec2 segVector = B.xy - A.xy;
-    float segLen = length(segVector);
-    if (segLen > 0.0) {
-        // http://mathworld.wolfram.com/PerpendicularVector.html
-        vec2 segNormal = vec2(-segVector.y, segVector.x) / segLen;
-        offsetA = A.xy + segNormal * A.z / 2.0;
-        offsetB = B.xy + segNormal * B.z / 2.0;
-        return true;
-    }
-    return false;
-}
-
-vec2 intersectSegments(vec2 seg1a, vec2 seg1b, vec2 seg2a, vec2 seg2b) {
-    // http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline2d/
-    vec2 seg1 = seg1b - seg1a;
-    vec2 seg2 = seg2b - seg2a;
-    vec2 segD = seg1a - seg2a;
-    float numer = (seg2.x * segD.y) - (seg2.y * segD.x);
-    float denom = (seg2.y * seg1.x) - (seg2.x * seg1.y);
-    return seg1a + (numer / denom) * seg1;
-}
-
-void main(void) {
-    vec3 x, y;
-    vec3 lat = vec3(vPositionPrev.y, vPosition.y, vPositionNext.y);
-    vec3 lon = vec3(vPositionPrev.x, vPosition.x, vPositionNext.x);
-    bvec3 projErr = project(lat, lon, x, y);
-    vec3 positionPrev = vec3(x[0], y[0], vPositionPrev.z);
-    vec3 position = vec3(x[1], y[1], vPosition.z);
-    vec3 positionNext = vec3(x[2], y[2], vPositionNext.z);
-    
-    if (any(projErr)) {
-        position.z = 0.0;
-    }
-    
-    vec2 seg1a, seg1b, seg2a, seg2b;
-    bool prevOffset = offsetSegment(positionPrev, position, seg1a, seg1b);
-    bool nextOffset = offsetSegment(position, positionNext, seg2a, seg2b);
-    if (prevOffset && nextOffset) {
-        //gl_Position.xy = (seg1b + seg2a) / 2.0;
-        //gl_Position.xy = intersectSegments(seg1a, seg1b, seg2a, seg2b);
-        gl_Position.xy = seg2a;
-    } else if (prevOffset) {
-        gl_Position.xy = seg1b;
-    } else if (nextOffset) {
-        gl_Position.xy = seg2a;
-    } else {
-        gl_Position.xy = position.xy;
-    }
-    gl_Position.z = 0.0;
-	gl_Position.w = 1.0;
-    gl_Position = modelViewProjMatrix * gl_Position;
-}
-
-</script>
-
-
-<script id="color_fragment_shader" type="x-shader/x-fragment">
-
-uniform mediump vec4 color;
-
-void main(void) {
-    gl_FragColor = color;
-}
-
-</script>
-
-
 <script id="texture_fragment_shader" type="x-shader/x-fragment">
 
 uniform sampler2D texture;
@@ -221,7 +143,7 @@ void main(void) {
 
 <script type="text/javascript">
 //var gl, canvas, button;
-var animating, viewTransform, texture, polygons, host;
+var animating, viewTransform, texture;
 
 button = document.getElementById('toggle_animation');
 canvas = document.getElementById('viewport');
@@ -262,14 +184,10 @@ gl.e = gl.console.logErrors = function () {
 
 var proj = document.getElementById('projection_vertex_helper');
 var point = document.getElementById('point_vertex_shader');
-var line = document.getElementById('line_vertex_shader');
 point.text = proj.text + point.text;
-line.text = proj.text + line.text;
 
 gl.shaders = {};
 gl.shaders.pointVertex = loadShader(gl, 'point_vertex_shader');
-gl.shaders.lineVertex = loadShader(gl, 'line_vertex_shader');
-gl.shaders.colorFragment = loadShader(gl, 'color_fragment_shader');
 gl.shaders.textureFragment = loadShader(gl, 'texture_fragment_shader');
 
 gl.rasterProgram = gl.createProgram();
@@ -278,20 +196,11 @@ gl.attachShader(gl.rasterProgram, gl.shaders.textureFragment);
 gl.linkProgram(gl.rasterProgram);
 setupProgram(gl.rasterProgram);
 
-gl.vectorProgram = gl.createProgram();
-gl.attachShader(gl.vectorProgram, gl.shaders.lineVertex);
-gl.attachShader(gl.vectorProgram, gl.shaders.colorFragment);
-gl.linkProgram(gl.vectorProgram);
-setupProgram(gl.vectorProgram);
-
 function setupProgram(program) {
     gl.useProgram(program);
     if (program === gl.rasterProgram) {
         // texture
         gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
-    } else if (program === gl.vectorProgram) {
-        // color
-        gl.uniform4f(gl.getUniformLocation(program, "color"), 1.0, 1.0, 0.0, 0.1);
     }
     // robinsonParallels
     var robinsonStuff = {};
@@ -306,17 +215,7 @@ function setupProgram(program) {
 function switchToProgram(program, scale, blend, rotation) {
     gl.useProgram(program);
     if (program === gl.rasterProgram) {
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.vectorProgram, 'vPosition'));
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.vectorProgram, 'vPositionPrev'));
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.vectorProgram, 'vPositionNext'));
-        
         gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPosition'));
-    } else if (program === gl.vectorProgram) {
-        gl.disableVertexAttribArray(gl.getAttribLocation(gl.rasterProgram, 'vPosition'));
-        
-        gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPosition'));
-        gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPositionPrev'));
-        gl.enableVertexAttribArray(gl.getAttribLocation(program, 'vPositionNext'));
     }
     
     // modelViewProjMatrix
@@ -367,64 +266,6 @@ texture.image.onload = function () {
 };
 texture.image.src = "HYP_50M_SR_W.jpg";
 
-
-// setup vector overlay
-polygons = [];
-if (document.location.protocol === 'file:') {
-    host = 'http://localhost:5984/world/';
-} else {
-    host = '../../';
-}
-$.get(host + '_all_docs', function (result) {
-    var countryList = result.rows.filter(function (row) { return row.id[0] != '_'; }).map(function (row) { return row.id; });
-    countryList.forEach(function (docId) {
-        $.get(host + docId, function (doc) {
-            var shapes;
-            if (doc.geometry.type === 'MultiPolygon') {
-                shapes = doc.geometry.coordinates;
-            } else if (doc.geometry.type === 'Polygon') {
-                shapes = [doc.geometry.coordinates];
-            }
-            shapes.forEach(function (polygon) {
-                var sourceArray, prevPair, vertices, lineWidth, vbo;
-                
-                // unzip the sourceArray
-                sourceArray = polygon[0].filter(function (pair) {
-                    if (!prevPair || (Math.pow(prevPair[0]-pair[0], 2) + Math.pow(prevPair[1]-pair[1], 2)) > 0.125 ) {
-                        prevPair = pair;
-                        return true;
-                    } else {
-                        return false;
-                    }
-                });
-                if (sourceArray.length < 3) {
-                    return;
-                }
-                
-                vertices = [];
-                lineWidth = 0.005;
-                function append(p) {
-                    vertices.push(p[0], p[1], -lineWidth);
-                    vertices.push(p[0], p[1], +lineWidth);
-                }
-                append(sourceArray[0]);
-                sourceArray.forEach(append);
-                append(sourceArray[sourceArray.length - 1]);
-                
-                // copy to buffer
-                vbo = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-                polygons.push({buffer: vbo, vertexCount: 2 * sourceArray.length});
-            });
-            
-            if (!animating) {
-                draw(0.75, 0, 0.5);
-            }
-        }, 'json');
-    });
-}, 'json');
-
 var gState;
 function draw(scale, blend, rotation) {
     var vPositionIdx, vPositionPrevIdx, vPositionNextIdx;
@@ -443,23 +284,6 @@ function draw(scale, blend, rotation) {
        gl.bindBuffer(gl.ARRAY_BUFFER, strip.buffer);
        gl.vertexAttribPointer(vPositionIdx, 2, gl.FLOAT, false, 0, 0);
        gl.drawArrays(gl.TRIANGLE_STRIP, 0, strip.vertexCount);
-    });
-    
-    switchToProgram(gl.vectorProgram, scale, blend, rotation);
-    vPositionIdx = gl.getAttribLocation(gl.vectorProgram, 'vPosition');
-    vPositionPrevIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionPrev');
-    vPositionNextIdx = gl.getAttribLocation(gl.vectorProgram, 'vPositionNext');
-    
-    gl.disable(gl.CULL_FACE);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    
-    polygons.forEach(function (polygon) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, polygon.buffer);
-        gl.vertexAttribPointer(vPositionPrevIdx, 3, gl.FLOAT, false, 0, 0*2*3*4);   // 2 sets of 3 4-byte floats
-        gl.vertexAttribPointer(vPositionIdx,     3, gl.FLOAT, false, 0, 1*2*3*4);
-        gl.vertexAttribPointer(vPositionNextIdx, 3, gl.FLOAT, false, 0, 2*2*3*4);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, polygon.vertexCount);
     });
 }
 
