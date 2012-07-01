@@ -34,22 +34,28 @@ THE SOFTWARE.
 
 
 <style>
-    
+    html, body { padding: 0; margin: 0; }
+    body { background: #0A0A1A; color: white; font-family: sans-serif; }
+    h1, p { margin: 10px; }
+    a:visited { color: blue; }
+    canvas { position: absolute; top: 0; width: 100%; z-index: -1; }
+    footer, .credit { font-size: 75%; font-style: italic; }
+    footer { position: absolute; bottom: 0.5em; right: 0.5em; color: grey; }
+    .error { border: 2px dashed red; display: block; padding: 2em; font-style: italic; }
 </style>
 
 </head>
-<body style="background: #0A0A1A">
+<body>
 
 <h1>Inverted Earth</h1>
-
 <p>
-A demonstration of using WebGL to do web-based cartographic drawing on the GPU.
+A simple demo of clientside cartographic reprojection by <a href="http://twitter.com/natevw">@natevw</a><br>
+<span class="credit">Imagery from NASA-JPL, courtesy <a href="http://argyl.es">Argyle Tiles</a></span>
 </p>
 
-<button type="button" id="toggle_animation">Animate</button>
 <div id="frames"></div>
 
-<canvas id="viewport" width="2048" height="1536" style="width: 1024px; height: 768px;"></canvas>
+<canvas id="viewport" width="2048" height="1536"></canvas>
 
 <script id="projection_vertex_helper" type="x-shader/x-include">
 
@@ -110,10 +116,9 @@ void main(void) {
 
 
 <script type="text/javascript">
-//var gl, canvas, button;
+//var gl, canvas;
 var animating, viewTransform, texture;
 
-button = document.getElementById('toggle_animation');
 canvas = document.getElementById('viewport');
 try {
     // FF4.0b6 throws an exception if WebGL context not available
@@ -123,8 +128,7 @@ try {
 }
 
 if (!gl) {
-    canvas.outerHTML = "<span style='border: 2px dashed red; display: block; padding: 2em; font-style: italic'>Sorry, your browser doesn't appear to support WebGL. Please see the instructions above.</span>";
-    button.style.display = 'none';
+    canvas.outerHTML = "<span class=error>Sorry, your browser doesn't appear to support WebGL.</span>";
     throw Error("WebGL not available");
 }
 
@@ -247,10 +251,10 @@ function draw(scale, blend, rotation) {
     });
 }
 
-document.getElementById('toggle_animation').addEventListener('click', function () {
+function animate() {
     var fps, PI, state, timer;
     
-    fps = new Framerate('frames');
+    //fps = new Framerate('frames');
     
     PI = 3.1415926536;
     state = PI / 2;
@@ -261,20 +265,20 @@ document.getElementById('toggle_animation').addEventListener('click', function (
         rotation = -state % -1.0;
         blend = 0.5 - Math.sin(state) / 2;
         scale = 0.65 - 0.4 * blend;
-        draw(scale/5, blend, rotation);
+        draw(scale/2, blend, rotation);
         gl.flush();
-        fps.snapshot();
+        //fps.snapshot();
 
-        state += 0.001;
+        state += 0.002;
     }, 1);
-    button.style.display = 'none';
-}, false);
+}
+animate();
 
 </script>
 
 
-<hr />
+<footer>
 Copyright &copy; 2010&ndash;2011 &amp;yet LLC, 2012 Nathan Vander Wilt. Released under the terms of the MIT license.
-
+</footer>
 </body>
 </html>
