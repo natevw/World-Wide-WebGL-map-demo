@@ -77,22 +77,18 @@ void project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
     vec3 lam = radians(lon);
     lam = normalizeLam(lam - meridian);
     
-    vec3 a = 0.5 * abs(M_PI/lam - lam/M_PI);
-    vec3 theta = asin(abs(2.0*phi/M_PI));
-    vec3 g = cos(theta) / (sin(theta) + cos(theta) - 1.0);
-    vec3 p = g * (2.0/sin(theta) - 1.0);
-    vec3 q = a*a + g;
+    vec3 s = 1.0 - (abs(phi) / M_PI);
+    vec3 eckertoneX = lam * s;
+    vec3 eckertoneY = phi;
     
-    vec3 p2a2 = p*p + a*a;
-    vec3 gp2 = g - p*p;
-    vec3 grintenX = sign(lam) * M_PI * (a*gp2 + sqrt(a*a*gp2*gp2 - p2a2*(g*g-p*p))) / p2a2;
-    vec3 grintenY = sign(phi) * M_PI * (p*q - a*sqrt((a*a+1.0)*p2a2 - q*q)) / p2a2;
-    vec3 mercatorX = lam;
-    vec3 mercatorY = log(tan(M_PI/4.0 + phi/2.0));
-    //x = mix(grintenX, mercatorX, blend);
-    //y = mix(grintenY, clamp(mercatorY, -2.5, 2.5), blend);
-    x = grintenX;
-    y = grintenY;
+    vec3 k = 2.0 / (1.0 + cos(phi)*cos(lam));
+    vec3 stereographicX = k * cos(phi) * sin(lam);
+    vec3 stereographicY = k * sin(phi);
+    
+    //x = mix(eckertoneX, stereographicX, blend);
+    //y = mix(eckertoneY, stereographicY, blend);
+    x = stereographicX;
+    y = stereographicY;
 }
 
 </script>
@@ -193,14 +189,6 @@ function setupProgram(program) {
         // texture
         gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
     }
-    // robinsonParallels
-    var robinsonStuff = {};
-    robinsonStuff.plen = [1.0000, 0.9986, 0.9954, 0.9900, 0.9822, 0.9730, 0.9600, 0.9427, 0.9216, 0.8962, 0.8679, 0.8350, 0.7986, 0.7597, 0.7186, 0.6732, 0.6213, 0.5722, 0.5322];
-    robinsonStuff.pdfe = [0.0000, 0.0620, 0.1240, 0.1860, 0.2480, 0.3100, 0.3720, 0.4340, 0.4958, 0.5571, 0.6176, 0.6769, 0.7346, 0.7903, 0.8435, 0.8936, 0.9394, 0.9761, 1.0000];
-    robinsonStuff.numSamples = robinsonStuff.plen.length;
-    robinsonStuff.textureData = new Float32Array(2 * robinsonStuff.numSamples);
-    robinsonStuff.plen.forEach(function (robinsonStuff_plen_i_, i) { robinsonStuff.textureData.set([robinsonStuff_plen_i_, robinsonStuff.pdfe[i]], 2 * i); });
-    gl.uniform2fv(gl.getUniformLocation(program, 'robinsonParallels'), robinsonStuff.textureData);
 }
 
 function switchToProgram(program, scale, blend, rotation) {
