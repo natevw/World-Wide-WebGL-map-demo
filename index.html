@@ -64,9 +64,6 @@ A demonstration of using WebGL to do web-based cartographic drawing on the GPU.
 #define M_1_PI 0.31830988618379067154
 #define M_2_PI 0.63661977236758134308
 
-#define RBSN_SCALE 0.5072
-uniform vec2 robinsonParallels[19];
-
 uniform float blend;
 uniform float meridian;
 
@@ -75,33 +72,27 @@ vec3 normalizeLam(vec3 lam) {
     return 2.0 * M_PI * (fract(0.5 * M_1_PI * lam + 0.5) - 0.5);
 }
 
-bvec3 project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
+void project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
     vec3 phi = radians(lat);
     vec3 lam = radians(lon);
     lam = normalizeLam(lam - meridian);
     
-    vec3 pos = abs(phi * M_2_PI) * 18.0;
-    ivec3 idx1 = ivec3(floor(pos));
-    ivec3 idx2 = ivec3(ceil(pos));
-    vec2 robinsonRow0 = mix(robinsonParallels[idx1.x], robinsonParallels[idx2.x], fract(pos.x));
-    vec2 robinsonRow1 = mix(robinsonParallels[idx1.y], robinsonParallels[idx2.y], fract(pos.y));
-    vec2 robinsonRow2 = mix(robinsonParallels[idx1.z], robinsonParallels[idx2.z], fract(pos.z));
-    vec3 robinsonPLEN = vec3(robinsonRow0.x, robinsonRow1.x, robinsonRow2.x);
-    vec3 robinsonPDFE = vec3(robinsonRow0.y, robinsonRow1.y, robinsonRow2.y);
+    vec3 a = 0.5 * abs(M_PI/lam - lam/M_PI);
+    vec3 theta = asin(abs(2.0*phi/M_PI));
+    vec3 g = cos(theta) / (sin(theta) + cos(theta) - 1.0);
+    vec3 p = g * (2.0/sin(theta) - 1.0);
+    vec3 q = a*a + g;
     
-    vec3 robinsonX = robinsonPLEN * lam * M_1_PI;
-    vec3 robinsonY = sign(phi) * robinsonPDFE * RBSN_SCALE;
+    vec3 p2a2 = p*p + a*a;
+    vec3 gp2 = g - p*p;
+    vec3 grintenX = sign(lam) * M_PI * (a*gp2 + sqrt(a*a*gp2*gp2 - p2a2*(g*g-p*p))) / p2a2;
+    vec3 grintenY = sign(phi) * M_PI * (p*q - a*sqrt((a*a+1.0)*p2a2 - q*q)) / p2a2;
     vec3 mercatorX = lam;
     vec3 mercatorY = log(tan(M_PI/4.0 + phi/2.0));
-    x = mix(robinsonX, mercatorX, blend);
-    y = mix(robinsonY, clamp(mercatorY, -2.5, 2.5), blend);
-    
-    // TODO: this just works for the demo, it may not be generally correct
-    bvec3 leftish = lessThan(lam, vec3(-M_PI/2.0));
-    bvec3 rightish = greaterThan(lam, vec3(M_PI/2.0));
-    bool crosses01 = (leftish[0] && rightish[1]) || (rightish[0] && leftish[1]);
-    bool crosses12 = (leftish[1] && rightish[2]) || (rightish[1] && leftish[2]);
-    return bvec3(crosses01, false, crosses12);
+    //x = mix(grintenX, mercatorX, blend);
+    //y = mix(grintenY, clamp(mercatorY, -2.5, 2.5), blend);
+    x = grintenX;
+    y = grintenY;
 }
 
 </script>
@@ -301,7 +292,7 @@ document.getElementById('toggle_animation').addEventListener('click', function (
         rotation = -state % -1.0;
         blend = 0.5 - Math.sin(state) / 2;
         scale = 0.65 - 0.4 * blend;
-        draw(scale, blend, rotation);
+        draw(scale/5, blend, rotation);
         gl.flush();
         fps.snapshot();
 
