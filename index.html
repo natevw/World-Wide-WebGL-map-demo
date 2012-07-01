@@ -2,21 +2,10 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>&amp;yet demo - World Wide WebGL</title>
+<title>Inverted Earth</title>
 
 <script type="text/javascript" src="J3DI.js"></script>
 <script type="text/javascript" src="J3DIMath.js"></script>
-
-<!--
-
-Dev Derby TODO:
-
-2. Replace image
-3. Replace projection
-4. Add mouse navigation
-
--->
-
 
 <!--
 
@@ -44,10 +33,14 @@ THE SOFTWARE.
 -->
 
 
+<style>
+    
+</style>
+
 </head>
 <body style="background: #0A0A1A">
 
-<h1>World Wide WebGL</h1>
+<h1>Inverted Earth</h1>
 
 <p>
 A demonstration of using WebGL to do web-based cartographic drawing on the GPU.
@@ -68,27 +61,18 @@ uniform float blend;
 uniform float meridian;
 
 // return lam in range [-M_PI, M_PI)
-vec3 normalizeLam(vec3 lam) {
+float normalizeLam(float lam) {
     return 2.0 * M_PI * (fract(0.5 * M_1_PI * lam + 0.5) - 0.5);
 }
 
-void project(vec3 lat, vec3 lon, out vec3 x, out vec3 y) {
-    vec3 phi = radians(lat);
-    vec3 lam = radians(lon);
+void project(float lat, float lon, out float x, out float y) {
+    float phi = radians(lat);
+    float lam = radians(lon);
     lam = normalizeLam(lam - meridian);
     
-    vec3 s = 1.0 - (abs(phi) / M_PI);
-    vec3 eckertoneX = lam * s;
-    vec3 eckertoneY = phi;
-    
-    vec3 k = 2.0 / (1.0 + cos(phi)*cos(lam));
-    vec3 stereographicX = k * cos(phi) * sin(lam);
-    vec3 stereographicY = k * sin(phi);
-    
-    //x = mix(eckertoneX, stereographicX, blend);
-    //y = mix(eckertoneY, stereographicY, blend);
-    x = stereographicX;
-    y = stereographicY;
+    float k = 2.0 / (1.0 + cos(phi)*cos(lam));
+    x = k * cos(phi) * sin(lam);
+    y = k * sin(phi);
 }
 
 </script>
@@ -103,10 +87,7 @@ varying vec2 textureCoord;
 void main(void) {
     textureCoord = vPosition / vec2(360.0, -180.0) + 0.5;
     
-    vec3 x, y;
-    project(vec3(vPosition.y), vec3(vPosition.x), x, y);
-    gl_Position.x = x.x;
-    gl_Position.y = y.y;
+    project(vPosition.y, vPosition.x, gl_Position.x, gl_Position.y);
 	gl_Position.z = 0.0;
 	gl_Position.w = 1.0;
     gl_Position = modelViewProjMatrix * gl_Position;
