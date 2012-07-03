@@ -122,7 +122,7 @@ var animating, viewTransform, texture;
 canvas = document.getElementById('viewport');
 try {
     // FF4.0b6 throws an exception if WebGL context not available
-    gl = canvas.getContext('experimental-webgl');
+    gl = canvas.getContext('experimental-webgl', {premultipliedAlpha:false});
 } catch (e) {
     gl = null;
 }
